@@ -64,7 +64,7 @@ Hono stays thin. Markup, ledger, evaluation, and x402 live in plain modules (`sr
 
 ### B2. Database
 
-- [ ] **Done when:** migrate against Neon from a clean database.
+- [x] **Done when:** migrate against Neon from a clean database.
 
 Neon Postgres + Drizzle. Schema (minimum):
 
@@ -80,7 +80,7 @@ Neon Postgres + Drizzle. Schema (minimum):
 Balances change **only** via ledger entries where `is_staged` is false. Do not `UPDATE accounts.available` without a matching non-staged row.
 
 - [x] Drizzle table definitions for the schema above.
-- [ ] Migrations via Drizzle. We connect directly to the remote Neon project for all environments.
+- [x] Migrations via Drizzle. We connect directly to the remote Neon project for all environments.
 
 ### B3. Auth
 
