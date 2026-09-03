@@ -3,6 +3,8 @@ import { Hono } from 'hono'
 import { createCorsMiddleware } from './cors'
 import { errorBody, handleError } from './errors'
 import { db } from './db/index'
+import { meRoutes } from './routes/me'
+import { webhookRoutes } from './routes/webhooks'
 
 export function createApp() {
   const app = new Hono()
@@ -22,6 +24,9 @@ export function createApp() {
       return c.json({ ok: false, ...errorBody('database_unavailable') }, 503)
     }
   })
+
+  app.route('/', webhookRoutes)
+  app.route('/', meRoutes)
 
   return app
 }

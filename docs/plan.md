@@ -84,12 +84,12 @@ Balances change **only** via ledger entries where `is_staged` is false. Do not `
 
 ### B3. Auth
 
-- [ ] **Done when:** registration/login via Clerk works; authenticated `GET /me` returns user info from the database (synced from Clerk) + balance.
+- [x] **Done when:** registration/login via Clerk works; authenticated `GET /me` returns user info from the database (synced from Clerk) + balance.
 
-- [ ] Use **Clerk** for identity.
-- [ ] `Authorization: Bearer` (Clerk JWT) on all account routes.
-- [ ] Mobile client uses Clerk SDK; Backend validates JWT via `@clerk/backend` and Hono middleware.
-- [ ] Sync users from Clerk to the `users` table via **webhooks**.
+- [x] Use **Clerk** for identity.
+- [x] `Authorization: Bearer` (Clerk JWT) on all account routes.
+- [x] Backend validates JWT via `@clerk/backend` and Hono middleware. (Mobile Clerk SDK lands in Phase M.)
+- [x] Sync users from Clerk to the `users` table via **webhooks**.
 
 ### B4. Ledger and funding (Stripe)
 
