@@ -1,0 +1,6 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# Supply-chain protection: prevent using packages published less than 1 week (10080 minutes) ago.
+minimumReleaseAge: 10080
