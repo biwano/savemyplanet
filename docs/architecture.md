@@ -22,8 +22,9 @@ TypeScript end-to-end so the backend can use Klima’s x402 client (`@klimadao/x
 | Monorepo | **pnpm workspaces + Turborepo** | Simple two-app repo, fast filtered scripts. |
 | Mobile | **Expo (React Native) + TypeScript** | iOS and Android from one codebase. |
 | Backend | **Hono + TypeScript** on Node | Small HTTP API for orchestration and LLM calls. |
-| Auth / DB | **Supabase** | Integrated Auth (GoTrue) and PostgreSQL. Easier than manual setup. |
-| ORM | **Drizzle** | TypeScript-first SQL access to the Supabase Postgres. |
+| Auth | **Clerk** | Dedicated Auth with polished UI components and Expo support. |
+| DB | **Neon** | Serverless PostgreSQL with scale-to-zero and branching. |
+| ORM | **Drizzle** | TypeScript-first SQL access to Neon Postgres. |
 | Signing | **viem** | Matches Klima examples for the x402 relay path. |
 | Payments | **Stripe** | Fiat deposits via Apple/Google Pay. |
 | AI | **OpenAI / Gemini API** | LLM for activity evaluation. |

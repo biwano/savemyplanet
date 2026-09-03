@@ -5,15 +5,16 @@ Free tiers to develop and demo. They sleep, pause, or cap CPU. Store distributio
 | Component | Host | Role |
 | --- | --- | --- |
 | API (`apps/backend`) | **Google Cloud Run** | Hono Node container. Handles LLM calls, Stripe integration, and Klima x402 orchestration. |
-| Auth / DB | **Supabase** | Integrated Auth and Postgres. **Constraint:** Free tier pauses after 7 days of inactivity (manual restore required). |
+| DB | **Neon** | Serverless Postgres. Auto-suspends compute when idle; wakes on request. |
+| Auth | **Clerk** | User management and auth. Polished Expo components. |
 | Mobile (`apps/mobile`) | **Expo Go + EAS free** | Dev on Expo Go. EAS for internal builds. |
-| Secrets / service wallet key | **Cloud Run secrets** | Secure storage for Klima keys, Supabase credentials, and Stripe keys. |
+| Secrets / service wallet key | **Cloud Run secrets** | Secure storage for Klima keys, DB credentials, and Stripe keys. |
 
-Hono on Cloud Run connects to Supabase Postgres via the Drizzle driver. Keep the API synchronous until timeouts force an async redesign.
+Hono on Cloud Run connects to Neon Postgres via the Drizzle driver. Keep the API synchronous until timeouts force an async redesign. User management is handled by Clerk.
 
 ## Why not the usual free APIs
 
-- **Neon** — Excellent scale-to-zero (no manual restore), but lacks the integrated Auth that makes Supabase "easier" for this MVP.
+- **Supabase** — Excellent integrated platform, but the free tier pauses after 7 days of inactivity requiring a manual restore.
 - **Vercel Hobby** — [Non-commercial only](https://vercel.com/docs/limits/fair-use-guidelines). Since this app takes a markup, it is commercial.
 
 Optional later, not the API host: Cloudflare Pages for an Expo web preview; Cloudflare DNS if we have a domain (`*.run.app` works without it).
@@ -28,4 +29,4 @@ Optional later, not the API host: Cloudflare Pages for an Expo web preview; Clou
 
 - The Expo app must use the Cloud Run HTTPS URL. No x402 from the client.
 - Cloud Run must allow **outbound HTTPS** to `https://x402.klimalabs.com/`.
-- Idle Supabase + scale-to-zero Cloud Run means the first request after a pause can be slow. The mobile app should show a loading state that handles a ~5-10s cold start.
+- Idle Neon + scale-to-zero Cloud Run means the first request after a pause can have a slight delay (~500ms for Neon, ~2-5s for Cloud Run). The mobile app should show a loading state.

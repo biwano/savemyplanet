@@ -10,7 +10,7 @@ Read this file first. Detailed notes live in the files below — keep them in sy
 | --- | --- |
 | [docs/product.md](docs/product.md) | Product goal, user flows, and account funding |
 | [docs/architecture.md](docs/architecture.md) | Monorepo layout, chosen stack, and system boundaries |
-| [docs/hosting.md](docs/hosting.md) | Chosen hosts: Cloud Run, Supabase, Expo EAS |
+| [docs/hosting.md](docs/hosting.md) | Chosen hosts: Cloud Run, Neon, Clerk, Expo EAS |
 | [docs/plan.md](docs/plan.md) | Implementation plan: backend first, then mobile |
 
 ## Current state

@@ -8,7 +8,7 @@ Chosen stack and hosts: [architecture.md](architecture.md), [hosting.md](hosting
 
 ```
 0. Monorepo
-   → B. Backend (local → Supabase → Cloud Run)
+   → B. Backend (local → Neon → Cloud Run)
      → API freeze
        → M. Mobile (Expo Go → EAS)
 ```
@@ -17,7 +17,7 @@ Chosen stack and hosts: [architecture.md](architecture.md), [hosting.md](hosting
 
 ## Phase 0 — Monorepo
 
-Create the repo layout before any feature work.
+Create the repo layout before any feature work. Initialize the Neon project to ensure the DB infrastructure is ready. Set up a Clerk application for authentication.
 
 ```
 apps/backend/     # Hono + Drizzle + viem
@@ -29,10 +29,12 @@ turbo.json
 
 - pnpm workspaces + Turborepo: `dev`, `build`, `lint`, `typecheck`.
 - Node 22, TypeScript strict.
-- Root `.env.example` listing backend secrets only. No private keys in git.
+- Neon: Cloud project created, `DATABASE_URL` ready.
+- Clerk: Application created, `CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` ready.
+- Root `.env.example` listing backend secrets (Neon, Clerk, Klima, etc.). No private keys in git.
 - `apps/backend/Dockerfile` (Node, `@hono/node-server`) from day one so Cloud Run is not a rewrite.
 
-**Done when:** `pnpm --filter backend dev` serves `GET /health`.
+**Done when:** `pnpm --filter backend dev` serves `GET /health` and connects to the remote Neon project.
 
 ---
 
@@ -50,30 +52,31 @@ Hono stays thin. Markup, ledger, evaluation, and x402 live in plain modules (`sr
 
 ### B2. Database
 
-Supabase Postgres + Drizzle. Schema (minimum):
+Neon Postgres + Drizzle. Schema (minimum):
 
 | Table | Purpose |
 | --- | --- |
-| `users` | id, email, password hash, created_at |
-| `accounts` | user_id, available_cents, reserved_cents (integer USD cents; or a single currency unit documented in code) |
-| `ledger_entries` | immutable credits/debits: funding, reserve, capture, release, with `retirement_id` when relevant |
+| `users` | id, clerk_id (unique), email, created_at |
+| `accounts` | user_id, available_cents, reserved_cents (integer USD cents) |
+| `ledger_entries` | immutable credits/debits: funding, reserve, capture, release; includes `retirement_id` and **`is_staged`** flag |
 | `quotes` | snapshot of user-facing price (tonnes, markup_bps, user_total, klima_total stored **server-only**, expiry) |
-| `retirements` | state machine + certificate URL, tx hash, tonnes, attribution |
+| `retirements` | state machine + certificate URL, tx hash, tonnes, attribution; includes **`is_staged`** flag |
 | `evaluations` | optional audit of activity text → suggested tonnes |
 
-Balances change **only** via ledger entries. Do not `UPDATE accounts.available` without a matching row.
+Balances change **only** via ledger entries where `is_staged` is false. Do not `UPDATE accounts.available` without a matching non-staged row.
 
-Migrations via Drizzle. Local: Docker Postgres or Supabase local dev.
+Migrations via Drizzle. We connect directly to the remote Neon project for all environments.
 
-**Done when:** migrate against Supabase from a clean database.
+**Done when:** migrate against Neon from a clean database.
 
 ### B3. Auth
 
-- Use **Supabase Auth**.
-- `Authorization: Bearer` (Supabase JWT) on all account routes.
-- Mobile client uses Supabase SDK; Backend validates JWT via Hono middleware.
+- Use **Clerk** for identity.
+- `Authorization: Bearer` (Clerk JWT) on all account routes.
+- Mobile client uses Clerk SDK; Backend validates JWT via `@clerk/backend` and Hono middleware.
+- Sync users from Clerk to the `users` table via **webhooks**.
 
-**Done when:** register/login via Supabase works; authenticated `GET /me` returns user info from Supabase + balance from DB.
+**Done when:** registration/login via Clerk works; authenticated `GET /me` returns user info from the database (synced from Clerk) + balance.
 
 ### B4. Ledger and funding (Stripe)
 
@@ -118,7 +121,7 @@ Vendor or install `@klimadao/x402-retire` / `klima-retire.ts`. Wrap it:
 
 ### B8. Retire (orchestration)
 
-`POST /retirements` `{ quote_id, beneficiaryString, retirementMessage?, confirm: true }`
+`POST /retirements` `{ quote_id, beneficiaryString, retirementMessage?, confirm: true, staged?: boolean }`
 
 Require `confirm: true`. Without it, 400.
 
@@ -127,14 +130,20 @@ State machine:
 ```
 quoted → reserved → submitted → settled
                  ↘ released (Klima failed / expired quote)
+        [staged] → (ends here, no on-chain tx)
 ```
 
 1. Load quote; 400 if expired or already used.
-2. If `available < user_total` → `402`/`409` insufficient_funds (our account, not x402).
-3. **Reserve** `user_total` (available ↓, reserved ↑, ledger `reserve`).
-4. Sign + relay via Klima (`retire()` / prepare-auth → actions/retire) from the **service wallet**. Attribution: `beneficiaryAddress` = service wallet or a documented protocol address; `beneficiaryString` from the user. `beneficiaryIsPayer` only if we deliberately credit the payer.
-5. On Klima success: ledger `capture`, store tx hash + certificate (poll `/certificate` if `pending_index`).
-6. On Klima failure: ledger `release`, reserved ↓, available ↑. User is not charged.
+2. If `staged: true`:
+   - Create retirement with `status: 'staged'` and `is_staged: true`.
+   - Create ledger entry with `is_staged: true` (record what *would* have been charged).
+   - **Skip** account balance updates and skip Klima call.
+   - Return 201 immediately.
+3. If `available < user_total` → `402`/`409` insufficient_funds.
+4. **Reserve** `user_total` (available ↓, reserved ↑, ledger `reserve`).
+5. Sign + relay via Klima (`retire()` / prepare-auth → actions/retire) from the **service wallet**.
+6. On Klima success: ledger `capture`, store tx hash + certificate.
+7. On Klima failure: ledger `release`, reserved ↓, available ↑. User is not charged.
 
 Service wallet: `KLIMA_PAYER_PRIVATE_KEY` only on the server. USDC on Base; no ETH required for relay.
 
@@ -151,8 +160,8 @@ Timeouts: Cloud Run request timeout ≥ Klima wait (start at 60s, raise if neede
 
 ### B10. Deploy backend
 
-- Supabase project + migrate.
-- Cloud Run: image from `apps/backend/Dockerfile`, secrets (`DATABASE_URL`, `SUPABASE_KEY`, `STRIPE_SECRET`, `KLIMA_PAYER_PRIVATE_KEY`).
+- Neon project + migrate.
+- Cloud Run: image from `apps/backend/Dockerfile`, secrets (`DATABASE_URL`, `CLERK_SECRET_KEY`, `STRIPE_SECRET`, `KLIMA_PAYER_PRIVATE_KEY`).
 - Outbound HTTPS to `x402.klimalabs.com` and LLM provider allowed.
 - `GET /health` on the `*.run.app` URL.
 
@@ -167,17 +176,17 @@ User-facing JSON. Field names are the freeze; change only with a version bump.
 | Method | Path | Auth | Success |
 | --- | --- | --- | --- |
 | GET | `/health` | no | `{ ok: true }` |
-| POST | `/auth/register` | no | `{ token, user }` |
-| POST | `/auth/login` | no | `{ token, user }` |
+| POST | `/auth/register` | no | handled by Clerk UI |
+| POST | `/auth/login` | no | handled by Clerk UI |
 | GET | `/me` | yes | `{ user, account }` |
 | GET | `/account` | yes | `{ available, reserved, currency }` |
 | POST | `/account/credit` | admin | `{ account }` (v1 funding) |
 | POST | `/evaluations` | yes | `{ suggestedTonnes, rationale }` |
 | GET | `/classes` | yes | `{ classes: [...] }` (list Klima classes) |
 | POST | `/quotes` | yes | `{ quoteId, carbonClass, tonnes, userTotal, currency, expiresAt }` |
-| POST | `/retirements` | yes | `{ id, status, certificateUrl? }` |
+| POST | `/retirements` | yes | `{ id, status, certificateUrl?, isStaged? }` (accepts `staged: boolean` in body) |
 | GET | `/retirements` | yes | `{ items: [...] }` |
-| GET | `/retirements/:id` | yes | `{ id, status, tonnes, userTotal, certificateUrl?, txHash? }` |
+| GET | `/retirements/:id` | yes | `{ id, status, tonnes, userTotal, certificateUrl?, txHash?, isStaged? }` |
 
 `account.available` / quote `userTotal` are **marked-up**. Wholesale Klima amounts never appear.
 
@@ -192,15 +201,15 @@ Expo app talks **only** to the Cloud Run base URL (config: `EXPO_PUBLIC_API_URL`
 ### M1. App shell
 
 - Expo + TypeScript, Expo Router.
-- Auth storage (secure store) for JWT.
+- Auth storage (secure store) for JWT (managed by Clerk).
 - API client typed from the frozen contract.
-- Tolerate Cloud Run/Supabase cold start on first request (retry/spinner, not a 3s hard fail).
+- Tolerate Cloud Run/Neon cold start on first request (retry/spinner, not a 3s hard fail).
 
 **Done when:** Expo Go hits deployed `/health`.
 
 ### M2. Auth and account
 
-- register, login, logout via Supabase SDK.
+- register, login, logout via Clerk Expo SDK.
 - Home: available balance, reserved if any.
 - Deposit: Stripe payment sheet.
 
@@ -259,8 +268,8 @@ B1–B4 skeleton, DB, auth, ledger
 B5–B6 Klima reads + marked-up quotes  
 B7 evaluations  
 B8–B9 retire + history  
-B10 Cloud Run + Supabase + secrets  
+B10 Cloud Run + Neon + secrets  
 *Freeze API table*  
-M1–M3 shell, auth (Supabase), evaluate (LLM)  
+M1–M3 shell, auth (Clerk), evaluate (LLM)  
 M4–M5 retire UX (classes) + certificate  
 M6 EAS preview
