@@ -25,3 +25,4 @@ The product and architecture are specified in `docs/`. Phase 0 (monorepo + healt
 - Prefer updating the docs in the table above over duplicating product decisions in this file.
 - When a phase’s **Done when** in [docs/plan.md](docs/plan.md) is met, check it `[x]` there (and the matching bullets / order-of-work row). Do not mark a phase done because related files exist.
 - Relative TypeScript imports are **extensionless** (e.g. `./db/index`, not `./db/index.ts`). Matches `moduleResolution: "bundler"` and the rest of `apps/backend`.
+- When generating Drizzle migrations, always pass a descriptive `--name` (e.g. `npm run db:generate -- --name add_accounts_constraints`) so files are not random tags like `0001_naive_joshua_kane`.
