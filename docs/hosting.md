@@ -4,18 +4,17 @@ Free tiers to develop and demo. They sleep, pause, or cap CPU. Store distributio
 
 | Component | Host | Role |
 | --- | --- | --- |
-| API (`apps/backend`) | **Google Cloud Run** | Hono Node container, scale to zero, request timeout long enough to wait on Klima relay + certificate. Always-free monthly allowance (requests + vCPU/GiB-seconds). Needs a Google account (card often required). |
-| Postgres | **Neon** | Serverless Postgres for Drizzle. Compute suspends when idle and wakes on the next query. ~0.5 GB storage, branching for previews. |
-| Mobile (`apps/mobile`) | **Expo Go + EAS free** | Dev on Expo Go. EAS Build / EAS Update free quotas for internal binaries and JS updates. |
-| Secrets / service wallet key | **Cloud Run secrets** | Never ship the Klima payer key in the Expo app or a public repo. |
+| API (`apps/backend`) | **Google Cloud Run** | Hono Node container. Handles LLM calls, Stripe integration, and Klima x402 orchestration. |
+| Auth / DB | **Supabase** | Integrated Auth and Postgres. **Constraint:** Free tier pauses after 7 days of inactivity (manual restore required). |
+| Mobile (`apps/mobile`) | **Expo Go + EAS free** | Dev on Expo Go. EAS for internal builds. |
+| Secrets / service wallet key | **Cloud Run secrets** | Secure storage for Klima keys, Supabase credentials, and Stripe keys. |
 
-Hono on Cloud Run: `@hono/node-server` in a small Node Docker image. Drizzle talks to Neon over the pooled or serverless driver. Keep the API synchronous on Cloud Run until retire is redesigned as async (`202` + poll).
+Hono on Cloud Run connects to Supabase Postgres via the Drizzle driver. Keep the API synchronous until timeouts force an async redesign.
 
 ## Why not the usual free APIs
 
-- **Cloudflare Workers** — native Hono, but free CPU (~10 ms/request) cannot wait for Base confirmation.
-- **Vercel Hobby** — Hono can run there and duration is now long enough, but Hobby is [non-commercial only](https://vercel.com/docs/limits/fair-use-guidelines). Charging a markup is commercial; Pro is not free.
-- **Supabase** — fine Postgres, but the project pauses after ~7 days idle and needs a manual restore.
+- **Neon** — Excellent scale-to-zero (no manual restore), but lacks the integrated Auth that makes Supabase "easier" for this MVP.
+- **Vercel Hobby** — [Non-commercial only](https://vercel.com/docs/limits/fair-use-guidelines). Since this app takes a markup, it is commercial.
 
 Optional later, not the API host: Cloudflare Pages for an Expo web preview; Cloudflare DNS if we have a domain (`*.run.app` works without it).
 
@@ -29,4 +28,4 @@ Optional later, not the API host: Cloudflare Pages for an Expo web preview; Clou
 
 - The Expo app must use the Cloud Run HTTPS URL. No x402 from the client.
 - Cloud Run must allow **outbound HTTPS** to `https://x402.klimalabs.com/`.
-- Idle Neon + scale-to-zero Cloud Run means the first request after a pause can be slow; the mobile app should tolerate that on quotes, not hide a retirement in a 3s spinner.
+- Idle Supabase + scale-to-zero Cloud Run means the first request after a pause can be slow. The mobile app should show a loading state that handles a ~5-10s cold start.

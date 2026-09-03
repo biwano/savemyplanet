@@ -20,10 +20,13 @@ TypeScript end-to-end so the backend can use Klima’s x402 client (`@klimadao/x
 | Layer | Choice | Why |
 | --- | --- | --- |
 | Monorepo | **pnpm workspaces + Turborepo** | Simple two-app repo, fast filtered scripts. |
-| Mobile | **Expo (React Native) + TypeScript** | iOS and Android from one codebase; same language as the backend. |
-| Backend | **Hono + TypeScript** on Node | Small HTTP API (accounts, quotes, retire). Klima SDK is TS. |
-| Signing | **viem** | Matches Klima examples (`signTypedData` for the relay path). |
-| Data | **PostgreSQL + Drizzle** | Funded balances and retirement records; SQL with light TS types. |
+| Mobile | **Expo (React Native) + TypeScript** | iOS and Android from one codebase. |
+| Backend | **Hono + TypeScript** on Node | Small HTTP API for orchestration and LLM calls. |
+| Auth / DB | **Supabase** | Integrated Auth (GoTrue) and PostgreSQL. Easier than manual setup. |
+| ORM | **Drizzle** | TypeScript-first SQL access to the Supabase Postgres. |
+| Signing | **viem** | Matches Klima examples for the x402 relay path. |
+| Payments | **Stripe** | Fiat deposits via Apple/Google Pay. |
+| AI | **OpenAI / Gemini API** | LLM for activity evaluation. |
 
 Hono stays a thin API. Put markup, funding checks, and x402 orchestration in plain modules — not inside the framework.
 
@@ -63,6 +66,6 @@ How users deposit (fiat, crypto, etc.) is not decided yet. Until it is, treat �
 
 ## Evaluation vs retirement
 
-Activity → tCO₂e evaluation is our product logic (backend, possibly with mobile-side UX only). It does not hit x402.
+Activity → tCO₂e evaluation is performed by an **LLM** on the backend. It takes natural language input from the user and returns a suggested tonnage. It does not hit x402.
 
-Chosen tonnes → Klima quote, our markup, then on-chain retirement. x402 is backend-only so the markup cannot be bypassed.
+Chosen tonnes → User selects a **Klima carbon class**; the backend performs a Klima quote, adds the **10% markup**, and executes on-chain retirement. x402 is backend-only.

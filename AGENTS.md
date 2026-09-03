@@ -10,12 +10,12 @@ Read this file first. Detailed notes live in the files below — keep them in sy
 | --- | --- |
 | [docs/product.md](docs/product.md) | Product goal, user flows, and account funding |
 | [docs/architecture.md](docs/architecture.md) | Monorepo layout, chosen stack, and system boundaries |
-| [docs/hosting.md](docs/hosting.md) | Chosen hosts: Cloud Run, Neon, Expo EAS |
-| [docs/x402.md](docs/x402.md) | Klima x402 retirement endpoint the backend uses |
+| [docs/hosting.md](docs/hosting.md) | Chosen hosts: Cloud Run, Supabase, Expo EAS |
+| [docs/plan.md](docs/plan.md) | Implementation plan: backend first, then mobile |
 
 ## Current state
 
-The product and architecture are specified in `docs/`. Packages listed in [docs/architecture.md](docs/architecture.md) are **planned**, not yet created. Stack and hosting in those docs are **chosen**. Do not invent extra apps, services, or crypto-wallet UX unless those docs are updated first.
+The product and architecture are specified in `docs/`. Packages listed in [docs/architecture.md](docs/architecture.md) are **planned**, not yet created. Stack and hosting are **chosen**. Follow [docs/plan.md](docs/plan.md): backend through API freeze, then mobile. Do not invent extra apps, services, or crypto-wallet UX unless those docs are updated first.
 
 ## Working rules
 
