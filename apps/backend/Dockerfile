@@ -10,6 +10,7 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 RUN pnpm --filter backend build
 
 FROM base AS runtime
+ENV NODE_ENV=production
 COPY --from=build /usr/src/app /usr/src/app
 WORKDIR /usr/src/app/apps/backend
 EXPOSE 3000

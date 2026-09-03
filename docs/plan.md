@@ -55,12 +55,12 @@ Hono stays thin. Markup, ledger, evaluation, and x402 live in plain modules (`sr
 
 ### B1. HTTP skeleton
 
-- [ ] **Done when:** health works locally and in Docker.
+- [x] **Done when:** health works locally and in Docker.
 
 - [x] Hono app; `GET /health` → `{ ok: true }`.
-- [ ] CORS for later Expo (configure allowed origins; `*` only in local dev).
-- [ ] Structured errors: `{ error: string, details?: unknown }`. Never leak Klima wholesale fields on user routes.
-- [ ] Health verified in Docker.
+- [x] CORS for later Expo (configure allowed origins; `*` only in local dev).
+- [x] Structured errors: `{ error: string, details?: unknown }`. Never leak Klima wholesale fields on user routes.
+- [x] Health verified in Docker.
 
 ### B2. Database
 

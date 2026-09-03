@@ -6,10 +6,7 @@
     "strict": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
-    "allowImportingTsExtensions": true,
-    "rewriteRelativeImportExtensions": true,
     "noEmit": true,
-    "outDir": "dist",
     "types": ["node"]
   },
   "include": ["src/**/*"]

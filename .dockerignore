@@ -1,0 +1,12 @@
+node_modules
+**/node_modules
+**/dist
+.git
+.env
+.env.*
+!.env.example
+*.md
+.turbo
+apps/mobile
+**/*.log
+.DS_Store
