@@ -1,10 +1,13 @@
-import { sql } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { createCorsMiddleware } from './cors'
 import { errorBody, handleError } from './errors'
-import { db } from './db/index'
+import { accountRoutes } from './routes/account/index'
+import { accountCreditRoutes } from './routes/account/credit'
+import { accountDepositRoutes } from './routes/account/deposit'
+import { healthRoutes } from './routes/health'
 import { meRoutes } from './routes/me'
-import { webhookRoutes } from './routes/webhooks'
+import { webhooksClerkRoutes } from './routes/webhooks/clerk'
+import { webhooksStripeRoutes } from './routes/webhooks/stripe'
 
 export function createApp() {
   const app = new Hono()
@@ -15,18 +18,13 @@ export function createApp() {
 
   app.notFound((c) => c.json(errorBody('not_found'), 404))
 
-  app.get('/health', async (c) => {
-    try {
-      await db.execute(sql`select 1`)
-      return c.json({ ok: true })
-    } catch (err) {
-      console.error('health check failed:', err)
-      return c.json({ ok: false, ...errorBody('database_unavailable') }, 503)
-    }
-  })
-
-  app.route('/', webhookRoutes)
-  app.route('/', meRoutes)
+  app.route('/health', healthRoutes)
+  app.route('/me', meRoutes)
+  app.route('/account', accountRoutes)
+  app.route('/account/deposit', accountDepositRoutes)
+  app.route('/account/credit', accountCreditRoutes)
+  app.route('/webhooks/clerk', webhooksClerkRoutes)
+  app.route('/webhooks/stripe', webhooksStripeRoutes)
 
   return app
 }

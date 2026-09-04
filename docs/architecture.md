@@ -56,7 +56,7 @@ mobile app  →  SaveMyPlanet backend  →  Klima x402 (https://x402.klimalabs.c
 
 Retirement spends the user’s SaveMyPlanet balance, not a user-held crypto wallet in the mobile app.
 
-**Deposits:** fiat via **Stripe** (USD or EUR presentment). **No crypto deposits.** See [product.md](product.md).
+**Deposits:** fiat via **Stripe** (USD or EUR presentment). **No crypto deposits.** Credit **gross** presentment (converted to USD cents once); do not deduct Stripe fees from the ledger. Fee recovery is via retirement markup — see [product.md](product.md). **Minimum:** 500 minor units ($5 / €5).
 
 **Ledger currency:** always **USD cents**. Users may pay in EUR at Checkout; the funding webhook converts once and credits `available_cents` in USD. Quotes and retirements stay in USD (aligned with Klima’s USDC wholesale). Do not hold per-user multi-currency balances or convert again at spend time.
 

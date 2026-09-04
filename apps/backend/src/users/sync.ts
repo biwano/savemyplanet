@@ -70,3 +70,13 @@ export async function ensureUserFromClerkId(
   const clerkUser = await getClerkClient().users.getUser(clerkUserId)
   return upsertLocalUser(clerkUser.id, emailFromClerkUser(clerkUser))
 }
+
+export async function getUserByIdOr404(userId: string): Promise<LocalUser> {
+  const user = await db.query.users.findFirst({
+    where: eq(users.id, userId),
+  })
+  if (!user) {
+    throw new AppError(404, 'user_not_found')
+  }
+  return user
+}

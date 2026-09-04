@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, numeric, uuid } from 'drizzle-orm/pg-core'
+import { pgTable, text, timestamp, numeric, uuid } from 'drizzle-orm/pg-core'
 import { users } from './users'
 import { quotes } from './quotes'
 
@@ -12,7 +12,6 @@ export const retirements = pgTable('retirements', {
   retirementMessage: text('retirement_message'),
   txHash: text('tx_hash'),
   certificateUrl: text('certificate_url'),
-  isStaged: boolean('is_staged').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })

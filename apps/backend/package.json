@@ -18,14 +18,19 @@
     "@neondatabase/serverless": "^1.1.0",
     "drizzle-orm": "^0.45.2",
     "hono": "latest",
+    "stripe": "22.6.1",
     "viem": "latest",
     "zod": "latest"
   },
   "devDependencies": {
+    "@eslint/js": "10.0.1",
     "@types/node": "^22.0.0",
     "drizzle-kit": "latest",
+    "eslint": "10.9.1",
+    "globals": "17.12.0",
     "tsup": "8.5.1",
     "tsx": "latest",
-    "typescript": "^5.5.4"
+    "typescript": "^5.5.4",
+    "typescript-eslint": "8.69.0"
   }
 }

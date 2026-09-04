@@ -10,6 +10,8 @@ A person opens the app, optionally asks it to estimate the carbon tonnage of an 
 
 1. **Evaluate an activity** — users describe an activity (e.g., "I flew from Paris to NYC") in natural language. An **LLM** extracts or estimates the tCO₂e. This is a suggestion; the user confirms the final amount.
 2. **Fund an account** — users deposit fiat via **Stripe** (pay in **USD or EUR**). The account balance is always held in **USD**. An EUR payment is converted once at funding and credited in USD cents. Retirement is blocked until that balance covers the marked-up cost. **No crypto deposits.**
+
+   **Minimum deposit:** **$5.00** or **€5.00** (500 minor units). Keeps Stripe’s fixed per-charge fee small relative to the balance so the 10% retirement markup can cover processing costs. (Stripe’s own card floor is lower; we enforce the product minimum.)
 3. **Retire credits** — users choose a **Klima carbon class** (e.g., Biochar, Forest conservation) and confirm the tonnage. The backend executes the retirement via x402 and returns a certificate.
 
 Evaluation does not require a funded account. Retirement does.
@@ -19,6 +21,8 @@ Evaluation does not require a funded account. Retirement does.
 Users pay SaveMyPlanet, not Klima. The price shown in the app is Klima’s retirement cost **plus our markup**. That is why retirement is never direct from the mobile app: if the client called x402, we could not take a margin.
 
 The funded account is debited at the marked-up price. The markup is fixed at **10%** (1000 basis points). The app never surfaces the raw x402 wholesale quote.
+
+**Stripe fees:** deposits credit **gross** — pay $10 → $10 available (EUR converted once to USD cents). Processing fees come out of our Stripe settlement, not the user’s balance. We recover them via the retirement markup (no deposit surcharge, no net-of-fees credit). Size `MARKUP_BPS` so it covers Klima cost + expected card/FX fees + margin.
 
 ## Retirement is permanent
 

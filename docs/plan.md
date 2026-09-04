@@ -71,12 +71,12 @@ Neon Postgres + Drizzle. Schema (minimum):
 | Table | Purpose |
 | --- | --- |
 | `users` | id, clerk_id (unique), email, available_cents, reserved_cents (integer USD cents), created_at |
-| `ledger_entries` | immutable credits/debits: funding, reserve, capture, release; includes `retirement_id` and **`is_staged`** flag |
+| `ledger_entries` | immutable credits/debits: funding, reserve, capture, release; includes `retirement_id` |
 | `quotes` | snapshot of user-facing price (tonnes, markup_bps, user_total, klima_total stored **server-only**, expiry) |
-| `retirements` | state machine + certificate URL, tx hash, tonnes, attribution; includes **`is_staged`** flag |
+| `retirements` | state machine + certificate URL, tx hash, tonnes, attribution |
 | `evaluations` | optional audit of activity text → suggested tonnes |
 
-Balances change **only** via ledger entries where `is_staged` is false. Do not `UPDATE users.available_cents` without a matching non-staged row.
+Balances change **only** via ledger entries. Do not `UPDATE users.available_cents` without a matching ledger row.
 
 - [x] Drizzle table definitions for the schema above.
 - [x] Migrations via Drizzle. We connect directly to the remote Neon project for all environments.
@@ -92,12 +92,12 @@ Balances change **only** via ledger entries where `is_staged` is false. Do not `
 
 ### B4. Ledger and funding (Stripe)
 
-- [ ] **Done when:** Stripe payment → balance increases via webhook.
+- [x] **Done when:** Stripe payment → balance increases via webhook.
 
-- [ ] `GET /account` → available, reserved, currency (`USD`).
-- [ ] `POST /account/deposit` (Stripe Checkout/PaymentIntent): presentment `usd` or `eur`; webhook credits **USD cents** only (convert EUR once; store presentment amount/currency + credited cents on the funding ledger row).
-- [ ] `POST /account/credit` (dev/admin) for manual overrides (USD cents).
-- [ ] Refuse retirement when `available < marked_up_total`.
+- [x] `GET /account` → available, reserved, currency (`USD`).
+- [x] `POST /account/deposit` (Stripe Checkout/PaymentIntent): presentment `usd` or `eur`; webhook credits **USD cents** only (convert EUR once; store presentment amount/currency + credited cents on the funding ledger row). Credit **gross** (user pays X → X available); Stripe fees absorbed and recovered via markup ([product.md](product.md)). Minimum deposit **500** minor units ($5 / €5).
+- [x] `POST /account/credit` (dev/admin) for manual overrides (USD cents).
+- [x] Refuse retirement when `available < marked_up_total`.
 
 ### B5. Klima client (read-only)
 
@@ -135,7 +135,7 @@ Vendor or install `@klimadao/x402-retire` / `klima-retire.ts`. Wrap it:
 
 - [ ] **Done when:** (testnet or tiny mainnet amount) funded user retires; balance drops by **user_total**; certificate URL stored; a forced Klima failure refunds the reserve.
 
-`POST /retirements` `{ quote_id, beneficiaryString, retirementMessage?, confirm: true, staged?: boolean }`
+`POST /retirements` `{ quote_id, beneficiaryString, retirementMessage?, confirm: true }`
 
 Require `confirm: true`. Without it, 400.
 
@@ -144,20 +144,16 @@ State machine:
 ```
 quoted → reserved → submitted → settled
                  ↘ released (Klima failed / expired quote)
-        [staged] → (ends here, no on-chain tx)
 ```
 
 1. Load quote; 400 if expired or already used.
-2. If `staged: true`:
-   - Create retirement with `status: 'staged'` and `is_staged: true`.
-   - Create ledger entry with `is_staged: true` (record what *would* have been charged).
-   - **Skip** account balance updates and skip Klima call.
-   - Return 201 immediately.
-3. If `available < user_total` → `402`/`409` insufficient_funds.
-4. **Reserve** `user_total` (available ↓, reserved ↑, ledger `reserve`).
-5. Sign + relay via Klima (`retire()` / prepare-auth → actions/retire) from the **service wallet**.
-6. On Klima success: ledger `capture`, store tx hash + certificate.
-7. On Klima failure: ledger `release`, reserved ↓, available ↑. User is not charged.
+2. If `available < user_total` → `402`/`409` insufficient_funds.
+3. **Reserve** `user_total` (available ↓, reserved ↑, ledger `reserve`).
+4. Sign + relay via Klima (`retire()` / prepare-auth → actions/retire) from the **service wallet**.
+5. On Klima success: ledger `capture`, store tx hash + certificate.
+6. On Klima failure: ledger `release`, reserved ↓, available ↑. User is not charged.
+
+Dry-run / test retirements use a **staging environment** (Stripe test keys + Neon branch), not a staged flag in production.
 
 Service wallet: `KLIMA_PAYER_PRIVATE_KEY` only on the server. USDC on Base; no ETH required for relay.
 
@@ -192,13 +188,14 @@ User-facing JSON. Field names are the freeze; change only with a version bump.
 | POST | `/auth/login` | no | handled by Clerk UI |
 | GET | `/me` | yes | `{ user, account }` |
 | GET | `/account` | yes | `{ available, reserved, currency }` |
+| POST | `/account/deposit` | yes | `{ clientSecret, paymentIntentId }` (presentment `usd` \| `eur`) |
 | POST | `/account/credit` | admin | `{ account }` (v1 funding) |
 | POST | `/evaluations` | yes | `{ suggestedTonnes, rationale }` |
 | GET | `/classes` | yes | `{ classes: [...] }` (list Klima classes) |
 | POST | `/quotes` | yes | `{ quoteId, carbonClass, tonnes, userTotal, currency, expiresAt }` |
-| POST | `/retirements` | yes | `{ id, status, certificateUrl?, isStaged? }` (accepts `staged: boolean` in body) |
+| POST | `/retirements` | yes | `{ id, status, certificateUrl? }` |
 | GET | `/retirements` | yes | `{ items: [...] }` |
-| GET | `/retirements/:id` | yes | `{ id, status, tonnes, userTotal, certificateUrl?, txHash?, isStaged? }` |
+| GET | `/retirements/:id` | yes | `{ id, status, tonnes, userTotal, certificateUrl?, txHash? }` |
 
 `account.available` / quote `userTotal` are **marked-up**. Wholesale Klima amounts never appear.
 
@@ -276,7 +273,7 @@ Default: evaluation requires auth (simpler). Logged-out evaluate is a later cont
 ## Order of work (checklist)
 
 - [x] 0. Phase 0 monorepo + backend health
-- [ ] B1–B4 skeleton, DB, auth, ledger
+- [x] B1–B4 skeleton, DB, auth, ledger
 - [ ] B5–B6 Klima reads + marked-up quotes
 - [ ] B7 evaluations
 - [ ] B8–B9 retire + history

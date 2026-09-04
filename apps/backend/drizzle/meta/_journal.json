@@ -22,6 +22,20 @@
       "when": 1788468867600,
       "tag": "0002_merge_accounts_into_users",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788510548121,
+      "tag": "0003_ledger_funding_stripe_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788532365330,
+      "tag": "0004_drop_is_staged",
+      "breakpoints": true
     }
   ]
 }

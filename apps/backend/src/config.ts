@@ -21,3 +21,9 @@ export function clerkWebhookSigningSecret(): string | undefined {
   const value = process.env.CLERK_WEBHOOK_SIGNING_SECRET?.trim()
   return value || undefined
 }
+
+/** Optional until admin credit is needed (`POST /account/credit`). */
+export function adminApiKey(): string | undefined {
+  const value = process.env.ADMIN_API_KEY?.trim()
+  return value || undefined
+}
