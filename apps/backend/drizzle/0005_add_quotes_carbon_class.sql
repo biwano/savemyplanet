@@ -1,0 +1,1 @@
+ALTER TABLE "quotes" ADD COLUMN "carbon_class" text NOT NULL;

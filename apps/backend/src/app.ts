@@ -6,6 +6,7 @@ import { accountCreditRoutes } from './routes/account/credit'
 import { accountDepositRoutes } from './routes/account/deposit'
 import { healthRoutes } from './routes/health'
 import { meRoutes } from './routes/me'
+import { quotesRoutes } from './routes/quotes'
 import { webhooksClerkRoutes } from './routes/webhooks/clerk'
 import { webhooksStripeRoutes } from './routes/webhooks/stripe'
 
@@ -23,6 +24,7 @@ export function createApp() {
   app.route('/account', accountRoutes)
   app.route('/account/deposit', accountDepositRoutes)
   app.route('/account/credit', accountCreditRoutes)
+  app.route('/quotes', quotesRoutes)
   app.route('/webhooks/clerk', webhooksClerkRoutes)
   app.route('/webhooks/stripe', webhooksStripeRoutes)
 

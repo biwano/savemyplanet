@@ -101,18 +101,18 @@ Balances change **only** via ledger entries. Do not `UPDATE users.available_cent
 
 ### B5. Klima client (read-only)
 
-- [ ] **Done when:** a script or admin route can print discover + a 1 t quote without exposing it on user APIs.
+- [x] **Done when:** a script or admin route can print discover + a 1 t quote without exposing it on user APIs.
 
 Vendor or install `@klimadao/x402-retire` / `klima-retire.ts`. Wrap it:
 
-- [ ] `discover()` / `quote()` only in this phase. No signing yet.
-- [ ] Config: `KLIMA_BASE_URL=https://x402.klimalabs.com`, `chainId=8453` (use `84532` only if we explicitly test Sepolia).
-- [ ] Input token: USDC.
-- [ ] Map Klima errors to our errors. Log wholesale `total` server-side only.
+- [x] `discover()` / `quote()` only in this phase. No signing yet.
+- [x] Config: `KLIMA_BASE_URL=https://x402.klimalabs.com`, `chainId=8453` (use `84532` only if we explicitly test Sepolia).
+- [x] Input token: USDC.
+- [x] Map Klima errors to our errors. Log wholesale `total` server-side only.
 
 ### B6. User quote (markup)
 
-- [ ] **Done when:** two quotes for the same tonnes differ only by live Klima price; response never includes wholesale.
+- [x] **Done when:** two quotes for the same tonnes differ only by live Klima price; response never includes wholesale.
 
 `POST /quotes`
 
@@ -121,6 +121,8 @@ Vendor or install `@klimadao/x402-retire` / `klima-retire.ts`. Wrap it:
 3. x402 `/quote` → `klima_total`.
 4. `user_total = klima_total * (1 + MARKUP_BPS / 10000)` (document rounding: round **up** in the user’s favor to cents so we never under-charge).
 5. Persist quote with short TTL (e.g. 10 minutes). Return **only** user-facing fields: tonnes, `user_total`, currency (`USD`), expires_at, quote_id. No `klima_total`, no `humanSummary` from Klima.
+
+- [x] `POST /quotes` (auth): validate tonnes; discover + optional price cap / optional `carbonClass`; Klima wholesale + markup (ceil to cents); persist with TTL; return `{ quoteId, carbonClass, tonnes, userTotal, currency, expiresAt }` only.
 
 ### B7. Evaluate activity (LLM)
 
@@ -274,7 +276,7 @@ Default: evaluation requires auth (simpler). Logged-out evaluate is a later cont
 
 - [x] 0. Phase 0 monorepo + backend health
 - [x] B1–B4 skeleton, DB, auth, ledger
-- [ ] B5–B6 Klima reads + marked-up quotes
+- [x] B5–B6 Klima reads + marked-up quotes
 - [ ] B7 evaluations
 - [ ] B8–B9 retire + history
 - [ ] B10 Cloud Run + Neon + secrets

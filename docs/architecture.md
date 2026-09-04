@@ -71,4 +71,4 @@ The backend must:
 
 Activity → tCO₂e evaluation is performed by an **LLM** on the backend. It takes natural language input from the user and returns a suggested tonnage. It does not hit x402.
 
-Chosen tonnes → User selects a **Klima carbon class**; the backend performs a Klima quote, adds the **10% markup**, and executes on-chain retirement. x402 is backend-only.
+Chosen tonnes → User selects a **Klima carbon class**; the backend performs a Klima quote, adds the **40% markup**, and executes on-chain retirement. x402 is backend-only.

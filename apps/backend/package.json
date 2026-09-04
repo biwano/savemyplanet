@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "klima:discover": "tsx --env-file=../../.env scripts/klima-discover-quote.ts"
   },
   "dependencies": {
     "@clerk/backend": "latest",

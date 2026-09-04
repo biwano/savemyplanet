@@ -3,7 +3,7 @@ import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['dist/**'] },
+  { ignores: ['dist/**', 'src/klima/vendor/**'] },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -13,6 +13,11 @@ export default tseslint.config(
     rules: {
       // Prefer unknown over any; allow when typing external SDK shapes is painful.
       '@typescript-eslint/no-explicit-any': 'off',
+      // Ban `as T` / angle-bracket assertions. `as const` remains allowed.
+      '@typescript-eslint/consistent-type-assertions': [
+        'error',
+        { assertionStyle: 'never' },
+      ],
       // Widen `as const` arrays to string[] so `.includes(string)` typechecks —
       // erases the literal union. Use `.some((x) => x === value)` instead.
       'no-restricted-syntax': [
