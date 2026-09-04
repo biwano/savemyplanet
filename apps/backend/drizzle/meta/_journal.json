@@ -15,6 +15,13 @@
       "when": 1788467214473,
       "tag": "0001_add_accounts_constraints",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788468867600,
+      "tag": "0002_merge_accounts_into_users",
+      "breakpoints": true
     }
   ]
 }

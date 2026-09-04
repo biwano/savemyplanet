@@ -9,7 +9,7 @@ A person opens the app, optionally asks it to estimate the carbon tonnage of an 
 ## Users can
 
 1. **Evaluate an activity** — users describe an activity (e.g., "I flew from Paris to NYC") in natural language. An **LLM** extracts or estimates the tCO₂e. This is a suggestion; the user confirms the final amount.
-2. **Fund an account** — users deposit fiat (USD/EUR) via **Stripe** to hold a balance. Retirement is blocked until the balance covers the marked-up cost. **No crypto deposits.**
+2. **Fund an account** — users deposit fiat via **Stripe** (pay in **USD or EUR**). The account balance is always held in **USD**. An EUR payment is converted once at funding and credited in USD cents. Retirement is blocked until that balance covers the marked-up cost. **No crypto deposits.**
 3. **Retire credits** — users choose a **Klima carbon class** (e.g., Biochar, Forest conservation) and confirm the tonnage. The backend executes the retirement via x402 and returns a certificate.
 
 Evaluation does not require a funded account. Retirement does.

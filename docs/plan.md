@@ -70,14 +70,13 @@ Neon Postgres + Drizzle. Schema (minimum):
 
 | Table | Purpose |
 | --- | --- |
-| `users` | id, clerk_id (unique), email, created_at |
-| `accounts` | user_id, available_cents, reserved_cents (integer USD cents) |
+| `users` | id, clerk_id (unique), email, available_cents, reserved_cents (integer USD cents), created_at |
 | `ledger_entries` | immutable credits/debits: funding, reserve, capture, release; includes `retirement_id` and **`is_staged`** flag |
 | `quotes` | snapshot of user-facing price (tonnes, markup_bps, user_total, klima_total stored **server-only**, expiry) |
 | `retirements` | state machine + certificate URL, tx hash, tonnes, attribution; includes **`is_staged`** flag |
 | `evaluations` | optional audit of activity text → suggested tonnes |
 
-Balances change **only** via ledger entries where `is_staged` is false. Do not `UPDATE accounts.available` without a matching non-staged row.
+Balances change **only** via ledger entries where `is_staged` is false. Do not `UPDATE users.available_cents` without a matching non-staged row.
 
 - [x] Drizzle table definitions for the schema above.
 - [x] Migrations via Drizzle. We connect directly to the remote Neon project for all environments.
@@ -95,9 +94,9 @@ Balances change **only** via ledger entries where `is_staged` is false. Do not `
 
 - [ ] **Done when:** Stripe payment → balance increases via webhook.
 
-- [ ] `GET /account` → available, reserved, currency.
-- [ ] `POST /account/deposit` (Stripe webhook or session) adds funds.
-- [ ] `POST /account/credit` (dev/admin) for manual overrides.
+- [ ] `GET /account` → available, reserved, currency (`USD`).
+- [ ] `POST /account/deposit` (Stripe Checkout/PaymentIntent): presentment `usd` or `eur`; webhook credits **USD cents** only (convert EUR once; store presentment amount/currency + credited cents on the funding ledger row).
+- [ ] `POST /account/credit` (dev/admin) for manual overrides (USD cents).
 - [ ] Refuse retirement when `available < marked_up_total`.
 
 ### B5. Klima client (read-only)
@@ -121,7 +120,7 @@ Vendor or install `@klimadao/x402-retire` / `klima-retire.ts`. Wrap it:
 2. Backend picks carbon class (discover + cap).
 3. x402 `/quote` → `klima_total`.
 4. `user_total = klima_total * (1 + MARKUP_BPS / 10000)` (document rounding: round **up** in the user’s favor to cents so we never under-charge).
-5. Persist quote with short TTL (e.g. 10 minutes). Return **only** user-facing fields: tonnes, `user_total`, currency, expires_at, quote_id. No `klima_total`, no `humanSummary` from Klima.
+5. Persist quote with short TTL (e.g. 10 minutes). Return **only** user-facing fields: tonnes, `user_total`, currency (`USD`), expires_at, quote_id. No `klima_total`, no `humanSummary` from Klima.
 
 ### B7. Evaluate activity (LLM)
 

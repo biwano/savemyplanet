@@ -8,7 +8,7 @@ const ACCOUNT_CURRENCY = 'USD'
 export const meRoutes = new Hono<{ Variables: AuthVariables }>()
 
 meRoutes.get('/me', requireAuth, async (c) => {
-  const { user, account } = await ensureUserFromClerkId(c.get('clerkUserId'))
+  const user = await ensureUserFromClerkId(c.get('clerkUserId'))
 
   return c.json({
     user: {
@@ -17,8 +17,8 @@ meRoutes.get('/me', requireAuth, async (c) => {
       createdAt: user.createdAt.toISOString(),
     },
     account: {
-      available: account.availableCents,
-      reserved: account.reservedCents,
+      available: user.availableCents,
+      reserved: user.reservedCents,
       currency: ACCOUNT_CURRENCY,
     },
   })

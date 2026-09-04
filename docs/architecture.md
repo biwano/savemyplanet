@@ -56,14 +56,16 @@ mobile app  →  SaveMyPlanet backend  →  Klima x402 (https://x402.klimalabs.c
 
 Retirement spends the user’s SaveMyPlanet balance, not a user-held crypto wallet in the mobile app.
 
+**Deposits:** fiat via **Stripe** (USD or EUR presentment). **No crypto deposits.** See [product.md](product.md).
+
+**Ledger currency:** always **USD cents**. Users may pay in EUR at Checkout; the funding webhook converts once and credits `available_cents` in USD. Quotes and retirements stay in USD (aligned with Klima’s USDC wholesale). Do not hold per-user multi-currency balances or convert again at spend time.
+
 The backend must:
 
 1. Quote Klima cost via x402 `/quote`, then apply **our markup**. That marked-up figure is the only price the mobile app sees and the amount the account must cover.
 2. Refuse retirement if the account cannot cover the marked-up price.
 3. Debit the account at the marked-up price only as part of a successful (or clearly in-flight) retirement, so a failed Klima call does not silently consume the balance.
 4. Pay Klima from the service wallet at the (lower) x402 total. The difference is our margin.
-
-How users deposit (fiat, crypto, etc.) is not decided yet. Until it is, treat “funded account” as an internal balance the backend checks before retiring.
 
 ## Evaluation vs retirement
 
