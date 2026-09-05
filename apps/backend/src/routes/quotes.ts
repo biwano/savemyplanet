@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { AuthVariables } from '../auth/middleware'
 import { requireAuth } from '../auth/middleware'
 import { parseJsonBody } from '../http/parse'
+import { rateLimitQuotes } from '../http/rateLimit'
 import { createUserQuote } from '../quotes/create'
 import { ensureUserFromClerkId } from '../users/sync'
 
@@ -16,7 +17,7 @@ const createQuoteBodySchema = z.object({
     .optional(),
 })
 
-quotesRoutes.post('/', requireAuth, async (c) => {
+quotesRoutes.post('/', requireAuth, rateLimitQuotes, async (c) => {
   const user = await ensureUserFromClerkId(c.get('clerkUserId'))
   const body = await parseJsonBody(c, createQuoteBodySchema)
 

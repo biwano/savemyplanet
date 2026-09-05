@@ -2,10 +2,11 @@ import { sql } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { db } from '../db/index'
 import { errorBody } from '../errors'
+import { rateLimitHealth } from '../http/rateLimit'
 
 export const healthRoutes = new Hono()
 
-healthRoutes.get('/', async (c) => {
+healthRoutes.get('/', rateLimitHealth, async (c) => {
   try {
     await db.execute(sql`select 1`)
     return c.json({ ok: true })

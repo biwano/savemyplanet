@@ -70,11 +70,13 @@ Neon Postgres + Drizzle. Schema (minimum):
 
 | Table | Purpose |
 | --- | --- |
-| `users` | id, clerk_id (unique), email, available_cents, reserved_cents (integer USD cents), created_at |
+| `users` | id, clerk_id (unique), email, available_cents, reserved_cents (integer USD cents), created_at; **B7b** adds `evaluations_remaining` (default 10) |
 | `ledger_entries` | immutable credits/debits: funding, reserve, capture, release; includes `retirement_id` |
 | `quotes` | snapshot of user-facing price (tonnes, markup_bps, user_total, klima_total stored **server-only**, expiry) |
 | `retirements` | state machine + certificate URL, tx hash, tonnes, attribution |
 | `evaluations` | optional audit of activity text → suggested tonnes |
+
+`beneficiaryAddress` is **not** a stored column: derive it deterministically from `users.id` (UUID → checksummed EVM address) in B7b. Same UUID always yields the same address.
 
 Balances change **only** via ledger entries. Do not `UPDATE users.available_cents` without a matching ledger row.
 
@@ -128,18 +130,33 @@ Vendor or install `@klimadao/x402-retire` / `klima-retire.ts`. Wrap it:
 
 - [x] **Done when:** natural language "I drove 100km" returns a valid tonnage.
 
-`POST /evaluations` `{ activity: string }` → `{ suggestedTonnes, rationale }`.
+`POST /evaluations` `{ activity: string }` → `{ suggestedTonnes, rationale, evaluationsRemaining }`.
 
 - [x] Backend calls LLM (OpenRouter) with a system prompt to extract tonnage from activity text.
 - [x] No heuristic estimate: if the LLM fails or is ambiguous, return an error (no invented tonnage).
 
+### B7b. Evaluation quota + user beneficiary address
+
+- [ ] **Done when:** new users have 10 evaluations; each success decrements; zero blocks `POST /evaluations`; a settled retirement resets to 10; `GET /me` exposes remaining count + derived `beneficiaryAddress`.
+
+Product rules: [product.md](product.md) (quota + default beneficiary).
+
+- [x] Migration: add `users.evaluations_remaining` integer NOT NULL default **10**; backfill existing rows to 10. Named migration (e.g. `--name add_evaluations_remaining`).
+- [x] Helper: derive `beneficiaryAddress` from `users.id` (deterministic UUID → EVM address). Unit-test stability (same id → same address).
+- [x] `GET /me` (and account shape if needed): include `evaluationsRemaining` and `beneficiaryAddress` (never `clerkId`).
+- [x] `POST /evaluations`: if `evaluations_remaining <= 0` → `403`/`409` with a clear error (no LLM call). On LLM success: decrement by 1 in the same transaction as the audit row; response includes updated `evaluationsRemaining`.
+- [x] Failed / ambiguous LLM responses do **not** consume quota.
+- [x] Tests: quota gate, decrement on success, no decrement on LLM failure, `/me` fields.
+
 ### B8. Retire (orchestration)
 
-- [ ] **Done when:** (testnet or tiny mainnet amount) funded user retires; balance drops by **user_total**; certificate URL stored; a forced Klima failure refunds the reserve.
+- [ ] **Done when:** (testnet or tiny mainnet amount) funded user retires; balance drops by **user_total**; certificate URL stored; a forced Klima failure refunds the reserve; settled success resets evaluations to 10.
 
 `POST /retirements` `{ quote_id, beneficiaryString, retirementMessage?, confirm: true }`
 
 Require `confirm: true`. Without it, 400.
+
+**Beneficiary address:** do not require the client to send `beneficiaryAddress`. On retire, set Klima `details.beneficiaryAddress` to the address derived from the user’s UUID ([product.md](product.md)). `beneficiaryString` remains the human-readable certificate name from the client.
 
 State machine:
 
@@ -151,15 +168,17 @@ quoted → reserved → submitted → settled
 1. Load quote; 400 if expired or already used.
 2. If `available < user_total` → `402`/`409` insufficient_funds.
 3. **Reserve** `user_total` (available ↓, reserved ↑, ledger `reserve`).
-4. Sign + relay via Klima (`retire()` / prepare-auth → actions/retire) from the **service wallet**.
-5. On Klima success: ledger `capture`, store tx hash + certificate.
-6. On Klima failure: ledger `release`, reserved ↓, available ↑. User is not charged.
+4. Sign + relay via Klima (`retire()` / prepare-auth → actions/retire) from the **service wallet**, using the user’s derived `beneficiaryAddress`.
+5. On Klima success: ledger `capture`, store tx hash + certificate; set `users.evaluations_remaining = 10`.
+6. On Klima failure: ledger `release`, reserved ↓, available ↑. User is not charged; **do not** reset evaluation quota.
 
 Dry-run / test retirements use a **staging environment** (Stripe test keys + Neon branch), not a staged flag in production.
 
 Service wallet: `KLIMA_PAYER_PRIVATE_KEY` only on the server. USDC on Base; no ETH required for relay.
 
 Timeouts: Cloud Run request timeout ≥ Klima wait (start at 60s, raise if needed). If we still hit limits, only then split into `202` + `GET /retirements/:id` polling — that is an explicit follow-up, not v1.
+
+- [ ] Tests: success path resets evaluations to 10; Klima failure leaves remaining unchanged.
 
 ### B9. Retirement history
 
@@ -188,14 +207,14 @@ User-facing JSON. Field names are the freeze; change only with a version bump.
 | GET | `/health` | no | `{ ok: true }` |
 | POST | `/auth/register` | no | handled by Clerk UI |
 | POST | `/auth/login` | no | handled by Clerk UI |
-| GET | `/me` | yes | `{ user, account }` |
+| GET | `/me` | yes | `{ user, account }` — `user` includes `evaluationsRemaining`, `beneficiaryAddress` |
 | GET | `/account` | yes | `{ available, reserved, currency }` |
 | POST | `/account/deposit` | yes | `{ clientSecret, paymentIntentId }` (presentment `usd` \| `eur`) |
 | POST | `/account/credit` | admin | `{ account }` (v1 funding) |
-| POST | `/evaluations` | yes | `{ suggestedTonnes, rationale }` |
+| POST | `/evaluations` | yes | `{ suggestedTonnes, rationale, evaluationsRemaining }` (403/409 if quota exhausted) |
 | GET | `/classes` | yes | `{ classes: [...] }` (list Klima classes) |
 | POST | `/quotes` | yes | `{ quoteId, carbonClass, tonnes, userTotal, currency, expiresAt }` |
-| POST | `/retirements` | yes | `{ id, status, certificateUrl? }` |
+| POST | `/retirements` | yes | `{ id, status, certificateUrl? }` (server sets `beneficiaryAddress` from user UUID; body still takes `beneficiaryString`) |
 | GET | `/retirements` | yes | `{ items: [...] }` |
 | GET | `/retirements/:id` | yes | `{ id, status, tonnes, userTotal, certificateUrl?, txHash? }` |
 
@@ -223,7 +242,7 @@ Expo app talks **only** to the Cloud Run base URL (config: `EXPO_PUBLIC_API_URL`
 - [ ] **Done when:** a user can sign in and see balance after an admin credit.
 
 - [ ] register, login, logout via Clerk Expo SDK.
-- [ ] Home: available balance, reserved if any.
+- [ ] Home: available balance, reserved if any; show `evaluationsRemaining` from `/me`.
 - [ ] Deposit: Stripe payment sheet.
 
 ### M3. Evaluate
@@ -231,8 +250,9 @@ Expo app talks **only** to the Cloud Run base URL (config: `EXPO_PUBLIC_API_URL`
 - [ ] **Done when:** suggestion appears without a funded account (auth still required if the API requires it; if we want evaluate logged-out, add that to the contract **before** this screen).
 
 - [ ] Text field for the activity.
-- [ ] Show `suggestedTonnes` + rationale.
+- [ ] Show `suggestedTonnes` + rationale; update remaining count from the response.
 - [ ] Prefill the retirement amount; user can edit.
+- [ ] When quota is zero: disable evaluate (or show clear error) and nudge toward retirement to reset.
 
 Default: evaluation requires auth (simpler). Logged-out evaluate is a later contract change.
 
@@ -242,9 +262,10 @@ Default: evaluation requires auth (simpler). Logged-out evaluate is a later cont
 
 - [ ] Browse `/classes` and select one.
 - [ ] Request `/quotes` for the chosen tonnes + class.
-- [ ] Show **our** price (marked-up), tonnes, beneficiary name.
+- [ ] Show **our** price (marked-up), tonnes, beneficiary name (`beneficiaryString`). Do not ask the user for a wallet/`beneficiaryAddress` — backend applies the UUID-derived default.
 - [ ] Explicit Confirm control (maps to `confirm: true`).
 - [ ] Errors: insufficient funds → prompt to deposit (Stripe).
+- [ ] After settled retirement: refresh `/me` so evaluation quota shows 10 again.
 
 ### M5. Certificate
 
@@ -304,16 +325,44 @@ Does **not** block B7–B10 or API freeze. Goal: cover every **existing** route 
 
 After T1, keep the AGENTS rule: every new route lands with its colocated test.
 
+## Side plan — Network throttling
+
+Does **not** block B8–B10 or API freeze. Goal: rate-limit **every** HTTP route via [`hono-rate-limiter`](https://www.npmjs.com/package/hono-rate-limiter) without changing the frozen success contract shape (`429` is an allowed error).
+
+### N1. Request throttling (`hono-rate-limiter`)
+
+- [x] **Done when:** every mounted route uses a limiter; over-limit callers get `429` with `{ error, details? }` (and `Retry-After` when the library sets it); within-limit traffic unchanged; tests cover allow + deny for at least one read and one write route.
+
+- [x] Depend on `hono-rate-limiter`. Default store: in-memory (Cloud Run best-effort per instance). Document that multi-instance shared limits need Redis (or similar) later — not v1.
+- [x] Key: authenticated user id when present; otherwise client IP (health, webhooks). Do not use `clerkId` in response bodies.
+- [x] Apply limiters on **all** routes (route-local or path-prefix middleware). Sensible starting windows (fixed window, per key):
+
+| Route(s) | Limit | Window | Why |
+| --- | --- | --- | --- |
+| `GET /health` | 120 | 1 min | Probes + cold-start retries; still capped |
+| `GET /me`, `GET /account`, `GET /classes`, `GET /retirements`, `GET /retirements/:id` | 60 | 1 min | Normal app polling / navigation |
+| `POST /account/deposit` | 10 | 1 min | Stripe Checkout spam |
+| `POST /account/credit` | 20 | 1 min | Admin only; still bound |
+| `POST /evaluations` | 10 | 1 min | LLM cost |
+| `POST /quotes` | 20 | 1 min | Klima wholesale calls |
+| `POST /retirements` | 5 | 1 min | Irreversible + Klima relay |
+| `POST /webhooks/clerk`, `POST /webhooks/stripe` | 120 | 1 min | Provider retries; key by IP |
+
+- [x] Handler / status: HTTP `429`, body `{ error: string, details?: unknown }` consistent with other structured errors.
+- [x] Tests: under limit → success path unchanged; over limit → 429; other keys unaffected.
+
 ## Order of work (checklist)
 
 - [x] 0. Phase 0 monorepo + backend health
 - [x] B1–B4 skeleton, DB, auth, ledger
 - [x] B5–B6 Klima reads + marked-up quotes
 - [x] B7 evaluations
-- [ ] B8–B9 retire + history
+- [ ] B7b evaluation quota + derived beneficiaryAddress
+- [ ] B8–B9 retire + history (reset quota on settle)
 - [ ] B10 Cloud Run + Neon + secrets
 - [ ] *Freeze API table*
 - [ ] M1–M3 shell, auth (Clerk), evaluate (LLM)
 - [ ] M4–M5 retire UX (classes) + certificate
 - [ ] M6 EAS preview
 - [x] *Side:* T0–T1 endpoint test catch-up (parallel OK) — T0–T1 done
+- [x] *Side:* N1 network throttling (parallel OK)

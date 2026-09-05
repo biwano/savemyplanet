@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createTestApp } from '../test/app'
 import { authHeader, mockClerkAuth } from '../test/auth'
 import { createTestUser, deleteTestUserByClerkId } from '../test/db'
+import { beneficiaryAddressFromUserId } from '../users/beneficiary'
+import { INITIAL_EVALUATIONS_REMAINING } from '../users/quota'
 import type { LocalUser } from '../users/sync'
 
 describe('GET /me', () => {
@@ -24,7 +26,7 @@ describe('GET /me', () => {
     expect(await res.json()).toEqual({ error: 'unauthorized' })
   })
 
-  it('returns { user, account } without clerkId', async () => {
+  it('returns { user, account } with quota and beneficiaryAddress, without clerkId', async () => {
     const app = createTestApp()
     const res = await app.request('/me', { headers: authHeader() })
 
@@ -35,6 +37,8 @@ describe('GET /me', () => {
         id: user.id,
         email: user.email,
         createdAt: user.createdAt.toISOString(),
+        evaluationsRemaining: INITIAL_EVALUATIONS_REMAINING,
+        beneficiaryAddress: beneficiaryAddressFromUserId(user.id),
       },
       account: {
         available: 0,

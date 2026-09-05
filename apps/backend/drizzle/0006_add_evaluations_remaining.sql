@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "evaluations_remaining" integer DEFAULT 10 NOT NULL;

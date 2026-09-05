@@ -2,11 +2,12 @@ import { Hono } from 'hono'
 import { accountBalanceFromUser } from '../../account/currency'
 import type { AuthVariables } from '../../auth/middleware'
 import { requireAuth } from '../../auth/middleware'
+import { rateLimitReads } from '../../http/rateLimit'
 import { ensureUserFromClerkId } from '../../users/sync'
 
 export const accountRoutes = new Hono<{ Variables: AuthVariables }>()
 
-accountRoutes.get('/', requireAuth, async (c) => {
+accountRoutes.get('/', requireAuth, rateLimitReads, async (c) => {
   const user = await ensureUserFromClerkId(c.get('clerkUserId'))
   return c.json(accountBalanceFromUser(user))
 })

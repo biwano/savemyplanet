@@ -2,11 +2,12 @@ import { verifyWebhook } from '@clerk/backend/webhooks'
 import { Hono } from 'hono'
 import { clerkWebhookSigningSecret } from '../../config'
 import { AppError, errorBody } from '../../errors'
+import { rateLimitWebhooks } from '../../http/rateLimit'
 import { upsertUserFromClerkJSON } from '../../users/sync'
 
 export const webhooksClerkRoutes = new Hono()
 
-webhooksClerkRoutes.post('/', async (c) => {
+webhooksClerkRoutes.post('/', rateLimitWebhooks, async (c) => {
   const signingSecret = clerkWebhookSigningSecret()
   if (!signingSecret) {
     throw new AppError(503, 'webhook_not_configured')

@@ -1,11 +1,12 @@
 import { Hono } from 'hono'
 import { AppError, errorBody } from '../../errors'
+import { rateLimitWebhooks } from '../../http/rateLimit'
 import { getStripe, stripeWebhookSecret } from '../../stripe/client'
 import { creditFromPaymentIntent } from '../../stripe/funding'
 
 export const webhooksStripeRoutes = new Hono()
 
-webhooksStripeRoutes.post('/', async (c) => {
+webhooksStripeRoutes.post('/', rateLimitWebhooks, async (c) => {
   const secret = stripeWebhookSecret()
   if (!secret) {
     throw new AppError(503, 'webhook_not_configured')

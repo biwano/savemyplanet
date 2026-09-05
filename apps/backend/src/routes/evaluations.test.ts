@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { evaluations } from '../db/schema/evaluations'
+import { users } from '../db/schema/users'
 import { normalizeSuggestedTonnes } from '../evaluate/index'
 import { parseLlmJson } from '../evaluate/llm'
 import { AppError } from '../errors'
@@ -13,6 +14,7 @@ import {
   testDb,
 } from '../test/db'
 import { mockEvaluateLlm } from '../test/mocks'
+import { INITIAL_EVALUATIONS_REMAINING } from '../users/quota'
 import type { LocalUser } from '../users/sync'
 
 describe('POST /evaluations', () => {
@@ -82,6 +84,7 @@ describe('POST /evaluations', () => {
     expect(body).toEqual({
       suggestedTonnes: 0.017,
       rationale: 'About 17 kg CO₂e for a 100 km car trip.',
+      evaluationsRemaining: INITIAL_EVALUATIONS_REMAINING - 1,
     })
 
     const row = await testDb.query.evaluations.findFirst({
@@ -93,6 +96,11 @@ describe('POST /evaluations', () => {
     expect(row).toBeDefined()
     expect(Number(row?.suggestedTonnes)).toBe(0.017)
     expect(row?.rationale).toBe(body.rationale)
+
+    const balance = await testDb.query.users.findFirst({
+      where: eq(users.id, user.id),
+    })
+    expect(balance?.evaluationsRemaining).toBe(INITIAL_EVALUATIONS_REMAINING - 1)
   })
 
   it('clamps suggested tonnes below MIN_TONNES so the result is quotable', async () => {
@@ -114,6 +122,7 @@ describe('POST /evaluations', () => {
     expect(body).toEqual({
       suggestedTonnes: MIN_TONNES,
       rationale: 'Tiny footprint.',
+      evaluationsRemaining: INITIAL_EVALUATIONS_REMAINING - 1,
     })
 
     const row = await testDb.query.evaluations.findFirst({
@@ -124,6 +133,43 @@ describe('POST /evaluations', () => {
     })
     expect(row).toBeDefined()
     expect(Number(row?.suggestedTonnes)).toBe(MIN_TONNES)
+  })
+
+  it('returns 403 when evaluation quota is exhausted (no LLM call)', async () => {
+    await testDb
+      .update(users)
+      .set({ evaluationsRemaining: 0 })
+      .where(eq(users.id, user.id))
+
+    const llm = mockEvaluateLlm({
+      suggestedTonnes: 1,
+      rationale: 'should not run',
+      ambiguous: false,
+    })
+
+    const app = createTestApp()
+    const res = await app.request('/evaluations', {
+      method: 'POST',
+      headers: { ...authHeader(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ activity: 'I drove 100km' }),
+    })
+
+    expect(res.status).toBe(403)
+    expect(await res.json()).toEqual({ error: 'evaluation_quota_exhausted' })
+    expect(llm).not.toHaveBeenCalled()
+
+    const row = await testDb.query.evaluations.findFirst({
+      where: and(
+        eq(evaluations.userId, user.id),
+        eq(evaluations.activityText, 'I drove 100km'),
+      ),
+    })
+    expect(row).toBeUndefined()
+
+    const balance = await testDb.query.users.findFirst({
+      where: eq(users.id, user.id),
+    })
+    expect(balance?.evaluationsRemaining).toBe(0)
   })
 
   it('returns 502 when the LLM fails', async () => {
@@ -146,6 +192,11 @@ describe('POST /evaluations', () => {
       ),
     })
     expect(row).toBeUndefined()
+
+    const balance = await testDb.query.users.findFirst({
+      where: eq(users.id, user.id),
+    })
+    expect(balance?.evaluationsRemaining).toBe(INITIAL_EVALUATIONS_REMAINING)
   })
 
   it('returns 502 when the LLM response cannot be parsed', async () => {
@@ -168,6 +219,11 @@ describe('POST /evaluations', () => {
       ),
     })
     expect(row).toBeUndefined()
+
+    const balance = await testDb.query.users.findFirst({
+      where: eq(users.id, user.id),
+    })
+    expect(balance?.evaluationsRemaining).toBe(INITIAL_EVALUATIONS_REMAINING)
   })
 
   it('returns 422 when the LLM marks the result ambiguous', async () => {
@@ -197,6 +253,11 @@ describe('POST /evaluations', () => {
       ),
     })
     expect(row).toBeUndefined()
+
+    const balance = await testDb.query.users.findFirst({
+      where: eq(users.id, user.id),
+    })
+    expect(balance?.evaluationsRemaining).toBe(INITIAL_EVALUATIONS_REMAINING)
   })
 })
 

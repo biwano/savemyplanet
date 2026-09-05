@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { accountBalanceFromUser } from '../../account/currency'
 import { requireAdmin } from '../../auth/middleware'
 import { parseJsonBody } from '../../http/parse'
+import { rateLimitCredit } from '../../http/rateLimit'
 import { creditFundingManual } from '../../ledger/index'
 import { getUserByIdOr404 } from '../../users/sync'
 
@@ -18,7 +19,7 @@ const creditBodySchema = z.object({
  * Auth: `X-Admin-Key`.
  * Target: local `userId` (never Clerk id).
  */
-accountCreditRoutes.post('/', requireAdmin, async (c) => {
+accountCreditRoutes.post('/', requireAdmin, rateLimitCredit, async (c) => {
   const { amountCents, userId } = await parseJsonBody(c, creditBodySchema)
   const target = await getUserByIdOr404(userId)
 

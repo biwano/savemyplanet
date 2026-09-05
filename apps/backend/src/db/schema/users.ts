@@ -1,4 +1,5 @@
 import { integer, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { INITIAL_EVALUATIONS_REMAINING } from '../../users/quota'
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -6,5 +7,8 @@ export const users = pgTable('users', {
   email: text('email').notNull(),
   availableCents: integer('available_cents').default(0).notNull(),
   reservedCents: integer('reserved_cents').default(0).notNull(),
+  evaluationsRemaining: integer('evaluations_remaining')
+    .default(INITIAL_EVALUATIONS_REMAINING)
+    .notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })

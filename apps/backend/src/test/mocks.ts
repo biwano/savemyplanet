@@ -65,14 +65,11 @@ export function mockClerkWebhookInvalid(
 }
 
 /** Stub LLM evaluation for `POST /evaluations` (no provider network). */
-export function mockEvaluateLlm(
-  result: LlmEvaluation | null | Error,
-): void {
+export function mockEvaluateLlm(result: LlmEvaluation | null | Error) {
   if (result instanceof Error) {
-    vi.spyOn(evaluateLlm, 'callLlm').mockRejectedValue(result)
-    return
+    return vi.spyOn(evaluateLlm, 'callLlm').mockRejectedValue(result)
   }
-  vi.spyOn(evaluateLlm, 'callLlm').mockResolvedValue(result)
+  return vi.spyOn(evaluateLlm, 'callLlm').mockResolvedValue(result)
 }
 
 /** Stub Klima discover + quote for `POST /quotes` (no x402 network). */

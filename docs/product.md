@@ -9,10 +9,14 @@ A person opens the app, optionally asks it to estimate the carbon tonnage of an 
 ## Users can
 
 1. **Evaluate an activity** — users describe an activity (e.g., "I flew from Paris to NYC") in natural language. An **LLM** extracts or estimates the tCO₂e. This is a suggestion; the user confirms the final amount.
+
+   **Evaluation quota:** each user starts with **10** evaluations. Every successful evaluation decrements the remaining count by one. At **zero**, `POST /evaluations` is refused until the quota is restored. A successful **retirement** resets remaining evaluations to **10**. Evaluation does not require a funded account; it does require remaining quota (and auth).
 2. **Fund an account** — users deposit fiat via **Stripe** (pay in **USD or EUR**). The account balance is always held in **USD**. An EUR payment is converted once at funding and credited in USD cents. Retirement is blocked until that balance covers the marked-up cost. **No crypto deposits.**
 
    **Minimum deposit:** **$5.00** or **€5.00** (500 minor units). Keeps Stripe’s fixed per-charge fee small relative to the balance so the 40% retirement markup can cover processing costs. (Stripe’s own card floor is lower; we enforce the product minimum.)
 3. **Retire credits** — users choose a **Klima carbon class** (e.g., Biochar, Forest conservation) and confirm the tonnage. The backend executes the retirement via x402 and returns a certificate.
+
+   **Default beneficiary address:** the backend derives a stable on-chain `beneficiaryAddress` from the user’s UUID and uses it by default when retiring (certificate attribution). Users do not supply or manage wallets for this.
 
 Evaluation does not require a funded account. Retirement does.
 

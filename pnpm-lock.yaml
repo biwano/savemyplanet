@@ -32,6 +32,9 @@ importers:
       hono:
         specifier: latest
         version: 4.13.5
+      hono-rate-limiter:
+        specifier: 0.5.3
+        version: 0.5.3(hono@4.13.5)
       stripe:
         specifier: 22.6.1
         version: 22.6.1(@types/node@22.20.1)
@@ -1526,6 +1529,15 @@ packages:
 
   headers-polyfill@5.0.1:
     resolution: {integrity: sha512-1TJ6Fih/b8h5TIcv+1+Hw0PDQWJTKDKzFZzcKOiW1wJza3XoAQlkCuXLbymPYB8+ZQyw8mHvdw560e8zVFIWyA==}
+
+  hono-rate-limiter@0.5.3:
+    resolution: {integrity: sha512-M0DxbVMpPELEzLi0AJg1XyBHLGJXz7GySjsPoK+gc5YeeBsdGDGe+2RvVuCAv8ydINiwlbxqYMNxUEyYfRji/A==}
+    peerDependencies:
+      hono: ^4.10.8
+      unstorage: ^1.17.3
+    peerDependenciesMeta:
+      unstorage:
+        optional: true
 
   hono@4.13.5:
     resolution: {integrity: sha512-O6+/eCYRkzzzy0rPWwKLiGBR1nFuUPZynnwjxN1MBA62NNqbT0wQEzQyK2gSO5yDIDB336sXQleAhOHrzlYyKw==}
@@ -3182,6 +3194,10 @@ snapshots:
     dependencies:
       '@types/set-cookie-parser': 2.4.10
       set-cookie-parser: 3.1.2
+
+  hono-rate-limiter@0.5.3(hono@4.13.5):
+    dependencies:
+      hono: 4.13.5
 
   hono@4.13.5: {}
 

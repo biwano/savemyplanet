@@ -4,6 +4,7 @@ import { PRESENTMENT_CURRENCIES } from '../../account/currency'
 import type { AuthVariables } from '../../auth/middleware'
 import { requireAuth } from '../../auth/middleware'
 import { parseJsonBody } from '../../http/parse'
+import { rateLimitDeposit } from '../../http/rateLimit'
 import { createDepositPaymentIntent } from '../../stripe/funding'
 import { ensureUserFromClerkId } from '../../users/sync'
 
@@ -18,7 +19,7 @@ const depositBodySchema = z.object({
     .pipe(z.enum(PRESENTMENT_CURRENCIES)),
 })
 
-accountDepositRoutes.post('/', requireAuth, async (c) => {
+accountDepositRoutes.post('/', requireAuth, rateLimitDeposit, async (c) => {
   const user = await ensureUserFromClerkId(c.get('clerkUserId'))
   const { amount, currency } = await parseJsonBody(c, depositBodySchema)
 
