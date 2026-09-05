@@ -9,6 +9,8 @@
     "start": "node dist/index.js",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "test": "node --env-file-if-exists=../../.env ./node_modules/vitest/vitest.mjs run",
+    "test:watch": "node --env-file-if-exists=../../.env ./node_modules/vitest/vitest.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "klima:discover": "tsx --env-file=../../.env scripts/klima-discover-quote.ts"
@@ -32,6 +34,7 @@
     "tsup": "8.5.1",
     "tsx": "latest",
     "typescript": "^5.5.4",
-    "typescript-eslint": "8.69.0"
+    "typescript-eslint": "8.69.0",
+    "vitest": "3.2.7"
   }
 }

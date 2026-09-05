@@ -272,6 +272,37 @@ Default: evaluation requires auth (simpler). Logged-out evaluate is a later cont
 - App Store / Play production release
 - Admin console UI (admin credit via HTTP is enough)
 
+---
+
+## Side plan — Endpoint tests (catch-up)
+
+Does **not** block B7–B10 or API freeze. Goal: cover every **existing** route with colocated tests (`routes/….test.ts`), per [AGENTS.md](../AGENTS.md). New routes still ship with tests in the same PR.
+
+### T0. Harness
+
+- [x] **Done when:** `pnpm --filter backend test` runs and one sample route test passes in CI/local.
+
+- [x] Vitest (or equivalent) + `test` script in `apps/backend`.
+- [x] Shared helpers: build app, auth stub (Bearer → test user), DB (Neon branch or transactional cleanup), mocks for Stripe / Klima / Clerk webhook verify.
+- [x] Pattern: success + important failures (401, 400 validation, domain errors). No wholesale Klima fields in user responses.
+
+### T1. Existing routes
+
+- [ ] **Done when:** each file below has a colocated `*.test.ts` with the cases noted.
+
+| Route file | Endpoint | Cover at least |
+| --- | --- | --- |
+| `routes/health.ts` | `GET /health` | 200 `{ ok: true }` |
+| `routes/me.ts` | `GET /me` | 401; 200 `{ user, account }` (no `clerkId`) |
+| `routes/account/index.ts` | `GET /account` | 401; 200 balance shape |
+| `routes/account/deposit.ts` | `POST /account/deposit` | 401; min amount / currency validation; 200 `{ clientSecret, paymentIntentId }` (Stripe mocked) |
+| `routes/account/credit.ts` | `POST /account/credit` | 401/forbidden non-admin; 200 credits balance |
+| `routes/quotes.ts` | `POST /quotes` | 401; tonnes validation; 200 user-facing quote only (Klima mocked; no `klima_total`) |
+| `routes/webhooks/clerk.ts` | `POST /webhooks/clerk` | bad signature rejected; user sync on valid event |
+| `routes/webhooks/stripe.ts` | `POST /webhooks/stripe` | bad signature rejected; funding credits USD cents on valid PaymentIntent |
+
+After T1, keep the AGENTS rule: every new route lands with its colocated test.
+
 ## Order of work (checklist)
 
 - [x] 0. Phase 0 monorepo + backend health
@@ -284,3 +315,4 @@ Default: evaluation requires auth (simpler). Logged-out evaluate is a later cont
 - [ ] M1–M3 shell, auth (Clerk), evaluate (LLM)
 - [ ] M4–M5 retire UX (classes) + certificate
 - [ ] M6 EAS preview
+- [ ] *Side:* T0–T1 endpoint test catch-up (parallel OK) — T0 done; T1 remaining

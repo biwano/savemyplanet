@@ -37,4 +37,11 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    // Mocks return partial SDK shapes; assertions are the practical escape hatch.
+    files: ['src/**/*.test.ts', 'src/test/**/*.ts'],
+    rules: {
+      '@typescript-eslint/consistent-type-assertions': 'off',
+    },
+  },
 )
