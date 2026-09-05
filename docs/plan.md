@@ -180,7 +180,7 @@ Timeouts: Cloud Run request timeout ≥ Klima wait (start at 60s, raise if neede
 
 - [x] Tests: success path resets evaluations to 10; Klima failure leaves remaining unchanged.
 - [x] **Follow-up:** background/job or on-read retry for `pending_index` rows — poll Klima `/certificate` by `txHash`, store `certificateUrl`, flip status to `settled`.
-- [ ] **Follow-up:** reconcile when Klima succeeds on-chain but local `capture`/settle then fails — row can stick at `submitted` with funds still reserved; recover tx hash, capture, and move to `settled` / `pending_index`.
+- [x] **Follow-up:** reconcile when Klima succeeds on-chain but local `capture`/settle then fails — row can stick at `submitted` with funds still reserved; recover tx hash, capture, and move to `settled` / `pending_index`.
 
 ### B9. Retirement history
 

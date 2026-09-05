@@ -1,7 +1,8 @@
 import { and, eq } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppError } from '../../errors'
+import * as ledger from '../../ledger/index'
 import { creditFundingManual } from '../../ledger/index'
 import { ledgerEntries } from '../../db/schema/ledgerEntries'
 import { quotes } from '../../db/schema/quotes'
@@ -404,6 +405,67 @@ describe('POST /retirements', () => {
 
     expect(second.status).toBe(409)
     expect(await second.json()).toMatchObject({ error: 'quote_already_used' })
+  })
+
+  it('when capture fails after Klima success: leaves submitted with txHash for reconcile', async () => {
+    const quote = await fundedQuote()
+    const txHash =
+      '0x1111111111111111111111111111111111111111111111111111111111111111'
+    mockKlimaRetire({
+      status: 'settled',
+      transactionHash: txHash,
+      certificateUrl: 'https://carbonmark.com/retirements/capture-fail',
+    })
+
+    const captureSpy = vi
+      .spyOn(ledger, 'capture')
+      .mockRejectedValueOnce(new Error('simulated capture failure'))
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    try {
+      const app = createTestApp()
+      const res = await app.request('/retirements', {
+        method: 'POST',
+        headers: { ...authHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          quoteId: quote.quoteId,
+          beneficiaryString: 'Ada',
+        }),
+      })
+
+      expect(res.status).toBe(500)
+      expect(await res.json()).toMatchObject({ error: 'internal_error' })
+
+      const row = await testDb.query.retirements.findFirst({
+        where: eq(retirements.quoteId, quote.quoteId),
+      })
+      expect(row).toMatchObject({
+        status: 'submitted',
+        txHash,
+        certificateUrl: null,
+      })
+
+      const [balance] = await testDb
+        .select()
+        .from(users)
+        .where(eq(users.id, user.id))
+      expect(balance.availableCents).toBe(5000 - quote.userTotal)
+      expect(balance.reservedCents).toBe(quote.userTotal)
+
+      const entries = await testDb
+        .select({ type: ledgerEntries.type })
+        .from(ledgerEntries)
+        .where(
+          and(
+            eq(ledgerEntries.userId, user.id),
+            eq(ledgerEntries.retirementId, row!.id),
+          ),
+        )
+      expect(entries).toEqual([{ type: 'reserve' }])
+    } finally {
+      captureSpy.mockRestore()
+      errorSpy.mockRestore()
+    }
   })
 })
 

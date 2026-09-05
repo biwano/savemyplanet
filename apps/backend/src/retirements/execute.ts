@@ -2,13 +2,12 @@ import { and, eq, inArray } from 'drizzle-orm'
 import { db } from '../db/index'
 import { quotes } from '../db/schema/quotes'
 import { retirements } from '../db/schema/retirements'
-import { users } from '../db/schema/users'
 import { AppError } from '../errors'
 import { retire as klimaRetire } from '../klima/index'
-import { capture, release, reserve } from '../ledger/index'
+import { release, reserve } from '../ledger/index'
 import { beneficiaryAddressFromUserId } from '../users/beneficiary'
-import { INITIAL_EVALUATIONS_REMAINING } from '../users/quota'
 import { apiRetirementFromRow, type APIRetirement } from './api'
+import { settleRetirement } from './settle'
 
 export type ExecuteRetirementInput = {
   userId: string
@@ -19,9 +18,12 @@ export type ExecuteRetirementInput = {
 
 /**
  * Orchestrate: load quote → reserve → Klima retire → capture (or release on failure).
- * Klima success (`settled` or `pending_index`) resets `evaluations_remaining` to
- * {@link INITIAL_EVALUATIONS_REMAINING}. Klima failure restores balance and leaves
- * the evaluation quota unchanged.
+ * Klima success (`settled` or `pending_index`) resets evaluation quota.
+ * Klima failure restores balance and leaves the evaluation quota unchanged.
+ *
+ * After Klima returns a tx hash, we persist it on the `submitted` row in its own
+ * commit before capture/settle. If local settle then fails, on-read reconcile
+ * (see `reconcileSubmittedRetirement`) can finish capture without losing the hash.
  */
 export async function executeRetirement(
   input: ExecuteRetirementInput,
@@ -71,31 +73,67 @@ export async function executeRetirement(
     throw err
   }
 
+  // Persist tx hash before capture so a settle failure leaves a recoverable row
+  // (docs/plan.md B8 reconcile follow-up).
+  await persistSubmittedTxHash({
+    retirementId,
+    transactionHash: klimaResult.transactionHash,
+  })
+
   // Klima may return pending_index when the tx is mined but the certificate
   // is not indexed yet. Capture + reset quota either way; certificate waits
   // for settled (see docs/plan.md B8 follow-up).
-  switch (klimaResult.status) {
-    case 'pending_index':
-      return settleRetirement({
+  const settleStatus = klimaResult.status
+  if (settleStatus !== 'pending_index' && settleStatus !== 'settled') {
+    // Do not release: tx may already be on-chain; hash is persisted for reconcile.
+    throw new AppError(502, 'klima_invalid_retire_status')
+  }
+
+  try {
+    return apiRetirementFromRow(
+      await settleRetirement({
         userId: input.userId,
         retirementId,
         amountCents,
         transactionHash: klimaResult.transactionHash,
-        certificateUrl: null,
-        status: 'pending_index',
-      })
-    case 'settled':
-      return settleRetirement({
-        userId: input.userId,
+        certificateUrl:
+          settleStatus === 'settled' ? klimaResult.certificateUrl : null,
+        status: settleStatus,
+      }),
+    )
+  } catch (err) {
+    console.error(
+      'settle after klima success failed; retirement left submitted for reconcile',
+      {
         retirementId,
-        amountCents,
         transactionHash: klimaResult.transactionHash,
-        certificateUrl: klimaResult.certificateUrl,
-        status: 'settled',
-      })
-    default:
-      // Do not release: tx may already be on-chain (docs/plan.md B8 reconcile follow-up).
-      throw new AppError(502, 'klima_invalid_retire_status')
+        err,
+      },
+    )
+    throw err
+  }
+}
+
+async function persistSubmittedTxHash(input: {
+  retirementId: string
+  transactionHash: string
+}): Promise<void> {
+  const [updated] = await db
+    .update(retirements)
+    .set({
+      txHash: input.transactionHash,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(retirements.id, input.retirementId),
+        eq(retirements.status, 'submitted'),
+      ),
+    )
+    .returning({ id: retirements.id })
+
+  if (!updated) {
+    throw new AppError(409, 'retirement_state_conflict')
   }
 }
 
@@ -191,57 +229,5 @@ async function releaseReserved(input: {
     if (!updated) {
       throw new AppError(409, 'retirement_state_conflict')
     }
-  })
-}
-
-async function settleRetirement(input: {
-  userId: string
-  retirementId: string
-  amountCents: number
-  transactionHash: string
-  certificateUrl: string | null
-  status: 'settled' | 'pending_index'
-}): Promise<APIRetirement> {
-  return db.transaction(async (tx) => {
-    await capture(
-      {
-        userId: input.userId,
-        amountCents: input.amountCents,
-        retirementId: input.retirementId,
-      },
-      tx,
-    )
-
-    const [row] = await tx
-      .update(retirements)
-      .set({
-        status: input.status,
-        txHash: input.transactionHash,
-        certificateUrl: input.certificateUrl,
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(retirements.id, input.retirementId),
-          eq(retirements.status, 'submitted'),
-        ),
-      )
-      .returning()
-
-    if (!row) {
-      throw new AppError(409, 'retirement_state_conflict')
-    }
-
-    const [quota] = await tx
-      .update(users)
-      .set({ evaluationsRemaining: INITIAL_EVALUATIONS_REMAINING })
-      .where(eq(users.id, input.userId))
-      .returning({ id: users.id })
-
-    if (!quota) {
-      throw new AppError(404, 'user_not_found')
-    }
-
-    return apiRetirementFromRow(row)
   })
 }

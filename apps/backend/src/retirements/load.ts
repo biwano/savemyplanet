@@ -3,6 +3,7 @@ import { db } from '../db/index'
 import { quotes } from '../db/schema/quotes'
 import { retirements } from '../db/schema/retirements'
 import { AppError } from '../errors'
+import { reconcileSubmittedRetirement } from './reconcileSubmitted'
 import { resolvePendingIndexRetirement } from './resolvePending'
 
 export type RetirementWithQuote = {
@@ -30,20 +31,32 @@ async function selectForUser(
     .orderBy(desc(retirements.createdAt))
 }
 
-/** List retirements for a user; resolve any `pending_index` rows on read. */
+/**
+ * Finish in-flight recoveries on read: stuck `submitted` (capture after Klima
+ * success) then `pending_index` (certificate indexing).
+ */
+async function resolveOnRead(
+  row: typeof retirements.$inferSelect,
+  userTotalCents: number,
+): Promise<typeof retirements.$inferSelect> {
+  const afterSubmitted = await reconcileSubmittedRetirement(row, userTotalCents)
+  return resolvePendingIndexRetirement(afterSubmitted)
+}
+
+/** List retirements for a user; resolve stuck / pending rows on read. */
 export async function listRetirementsForUser(
   userId: string,
 ): Promise<RetirementWithQuote[]> {
   const hits = await selectForUser(userId)
   return Promise.all(
     hits.map(async (hit) => ({
-      row: await resolvePendingIndexRetirement(hit.row),
+      row: await resolveOnRead(hit.row, hit.userTotalCents),
       userTotalCents: hit.userTotalCents,
     })),
   )
 }
 
-/** Load one retirement; resolve `pending_index` on read. */
+/** Load one retirement; resolve stuck / pending rows on read. */
 export async function getRetirementForUser(
   userId: string,
   retirementId: string,
@@ -54,7 +67,7 @@ export async function getRetirementForUser(
   }
 
   return {
-    row: await resolvePendingIndexRetirement(hit.row),
+    row: await resolveOnRead(hit.row, hit.userTotalCents),
     userTotalCents: hit.userTotalCents,
   }
 }

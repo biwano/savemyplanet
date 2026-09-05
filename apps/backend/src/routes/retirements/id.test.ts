@@ -1,9 +1,11 @@
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { AppError } from '../../errors'
-import { creditFundingManual } from '../../ledger/index'
+import { ledgerEntries } from '../../db/schema/ledgerEntries'
 import { retirements } from '../../db/schema/retirements'
+import { users } from '../../db/schema/users'
+import { AppError } from '../../errors'
+import { creditFundingManual, reserve } from '../../ledger/index'
 import { createUserQuote } from '../../quotes/create'
 import { createTestApp } from '../../test/app'
 import { authHeader, mockClerkAuth } from '../../test/auth'
@@ -17,6 +19,7 @@ import {
   mockKlimaPricing,
   mockKlimaRetire,
 } from '../../test/mocks'
+import { INITIAL_EVALUATIONS_REMAINING } from '../../users/quota'
 import type { LocalUser } from '../../users/sync'
 
 describe('GET /retirements/:id', () => {
@@ -55,6 +58,43 @@ describe('GET /retirements/:id', () => {
     expect(res.status).toBe(200)
     const body = (await res.json()) as { id: string }
     return { id: body.id, quote, txHash }
+  }
+
+  /** Simulate Klima success + failed local capture (stuck submitted + reserved). */
+  async function stuckSubmittedRetirement(txHash: string) {
+    mockKlimaPricing()
+    await creditFundingManual({ userId: user.id, amountCents: 5000 })
+    const quote = await createUserQuote({ userId: user.id, tonnes: 1 })
+
+    const [row] = await testDb
+      .insert(retirements)
+      .values({
+        userId: user.id,
+        quoteId: quote.quoteId,
+        status: 'submitted',
+        tonnes: String(quote.tonnes),
+        beneficiaryString: 'Ada',
+        txHash,
+      })
+      .returning()
+
+    await testDb.transaction(async (tx) => {
+      await reserve(
+        {
+          userId: user.id,
+          amountCents: quote.userTotal,
+          retirementId: row.id,
+        },
+        tx,
+      )
+    })
+
+    await testDb
+      .update(users)
+      .set({ evaluationsRemaining: 2 })
+      .where(eq(users.id, user.id))
+
+    return { id: row.id, quote, txHash }
   }
 
   it('returns 401 without Authorization', async () => {
@@ -195,5 +235,100 @@ describe('GET /retirements/:id', () => {
       userTotal: quote.userTotal,
       txHash,
     })
+  })
+
+  it('on-read reconciles submitted: captures, stores certificate, flips to settled', async () => {
+    const txHash =
+      '0x2222222222222222222222222222222222222222222222222222222222222222'
+    const { id, quote } = await stuckSubmittedRetirement(txHash)
+    const certificateUrl =
+      'https://carbonmark.com/retirements/submitted-reconciled'
+
+    mockKlimaCertificate({ transactionHash: txHash, certificateUrl })
+
+    const app = createTestApp()
+    const res = await app.request(`/retirements/${id}`, {
+      headers: authHeader(),
+    })
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({
+      id,
+      status: 'settled',
+      tonnes: 1,
+      userTotal: quote.userTotal,
+      certificateUrl,
+      txHash,
+    })
+
+    const row = await testDb.query.retirements.findFirst({
+      where: eq(retirements.id, id),
+    })
+    expect(row).toMatchObject({
+      status: 'settled',
+      certificateUrl,
+      txHash,
+    })
+
+    const [balance] = await testDb
+      .select()
+      .from(users)
+      .where(eq(users.id, user.id))
+    expect(balance.availableCents).toBe(5000 - quote.userTotal)
+    expect(balance.reservedCents).toBe(0)
+    expect(balance.evaluationsRemaining).toBe(INITIAL_EVALUATIONS_REMAINING)
+
+    const entries = await testDb
+      .select({ type: ledgerEntries.type, amountCents: ledgerEntries.amountCents })
+      .from(ledgerEntries)
+      .where(
+        and(
+          eq(ledgerEntries.userId, user.id),
+          eq(ledgerEntries.retirementId, id),
+        ),
+      )
+    expect(entries).toEqual(
+      expect.arrayContaining([
+        { type: 'reserve', amountCents: quote.userTotal },
+        { type: 'capture', amountCents: quote.userTotal },
+      ]),
+    )
+  })
+
+  it('on-read reconciles submitted to pending_index when certificate not indexed', async () => {
+    const txHash =
+      '0x3333333333333333333333333333333333333333333333333333333333333333'
+    const { id, quote } = await stuckSubmittedRetirement(txHash)
+    mockKlimaCertificate(null)
+
+    const app = createTestApp()
+    const res = await app.request(`/retirements/${id}`, {
+      headers: authHeader(),
+    })
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({
+      id,
+      status: 'pending_index',
+      tonnes: 1,
+      userTotal: quote.userTotal,
+      txHash,
+    })
+
+    const row = await testDb.query.retirements.findFirst({
+      where: eq(retirements.id, id),
+    })
+    expect(row).toMatchObject({
+      status: 'pending_index',
+      certificateUrl: null,
+      txHash,
+    })
+
+    const [balance] = await testDb
+      .select()
+      .from(users)
+      .where(eq(users.id, user.id))
+    expect(balance.reservedCents).toBe(0)
+    expect(balance.evaluationsRemaining).toBe(INITIAL_EVALUATIONS_REMAINING)
   })
 })
