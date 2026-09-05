@@ -126,12 +126,12 @@ Vendor or install `@klimadao/x402-retire` / `klima-retire.ts`. Wrap it:
 
 ### B7. Evaluate activity (LLM)
 
-- [ ] **Done when:** natural language "I drove 100km" returns a valid tonnage.
+- [x] **Done when:** natural language "I drove 100km" returns a valid tonnage.
 
 `POST /evaluations` `{ activity: string }` → `{ suggestedTonnes, rationale }`.
 
-- [ ] Backend calls LLM (OpenAI/Gemini) with a system prompt to extract tonnage from activity text.
-- [ ] Fallback to generic estimate if LLM fails or is ambiguous.
+- [x] Backend calls LLM (OpenRouter) with a system prompt to extract tonnage from activity text.
+- [x] No heuristic estimate: if the LLM fails or is ambiguous, return an error (no invented tonnage).
 
 ### B8. Retire (orchestration)
 
@@ -174,7 +174,7 @@ Timeouts: Cloud Run request timeout ≥ Klima wait (start at 60s, raise if neede
 
 - [ ] Neon project in AWS `eu-central-1` (Frankfurt) + migrate.
 - [ ] Cloud Run in `europe-west1` (Belgium) or `europe-west9` (Paris): image from `apps/backend/Dockerfile`, secrets (`DATABASE_URL`, `CLERK_SECRET_KEY`, `STRIPE_SECRET`, `KLIMA_PAYER_PRIVATE_KEY`).
-- [ ] Outbound HTTPS to `x402.klimalabs.com` and LLM provider allowed.
+- [ ] Outbound HTTPS to `x402.klimalabs.com` and OpenRouter allowed.
 - [ ] `GET /health` on the `*.run.app` URL.
 
 ---
@@ -308,7 +308,7 @@ After T1, keep the AGENTS rule: every new route lands with its colocated test.
 - [x] 0. Phase 0 monorepo + backend health
 - [x] B1–B4 skeleton, DB, auth, ledger
 - [x] B5–B6 Klima reads + marked-up quotes
-- [ ] B7 evaluations
+- [x] B7 evaluations
 - [ ] B8–B9 retire + history
 - [ ] B10 Cloud Run + Neon + secrets
 - [ ] *Freeze API table*

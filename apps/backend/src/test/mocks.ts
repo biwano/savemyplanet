@@ -2,6 +2,8 @@ import { verifyWebhook } from '@clerk/backend/webhooks'
 import type { WebhookEvent } from '@clerk/backend/webhooks'
 import type Stripe from 'stripe'
 import { vi } from 'vitest'
+import type { LlmEvaluation } from '../evaluate/llm'
+import * as evaluateLlm from '../evaluate/llm'
 import type { KlimaDiscoverResult, KlimaQuoteResult } from '../klima/index'
 import * as klima from '../klima/index'
 import * as stripeClient from '../stripe/client'
@@ -60,6 +62,17 @@ export function mockClerkWebhookInvalid(
   message = 'invalid signature',
 ): void {
   vi.mocked(verifyWebhook).mockRejectedValue(new Error(message))
+}
+
+/** Stub LLM evaluation for `POST /evaluations` (no provider network). */
+export function mockEvaluateLlm(
+  result: LlmEvaluation | null | Error,
+): void {
+  if (result instanceof Error) {
+    vi.spyOn(evaluateLlm, 'callLlm').mockRejectedValue(result)
+    return
+  }
+  vi.spyOn(evaluateLlm, 'callLlm').mockResolvedValue(result)
 }
 
 /** Stub Klima discover + quote for `POST /quotes` (no x402 network). */

@@ -4,6 +4,7 @@ import { errorBody, handleError } from './errors'
 import { accountRoutes } from './routes/account/index'
 import { accountCreditRoutes } from './routes/account/credit'
 import { accountDepositRoutes } from './routes/account/deposit'
+import { evaluationsRoutes } from './routes/evaluations'
 import { healthRoutes } from './routes/health'
 import { meRoutes } from './routes/me'
 import { quotesRoutes } from './routes/quotes'
@@ -24,6 +25,7 @@ export function createApp() {
   app.route('/account', accountRoutes)
   app.route('/account/deposit', accountDepositRoutes)
   app.route('/account/credit', accountCreditRoutes)
+  app.route('/evaluations', evaluationsRoutes)
   app.route('/quotes', quotesRoutes)
   app.route('/webhooks/clerk', webhooksClerkRoutes)
   app.route('/webhooks/stripe', webhooksStripeRoutes)

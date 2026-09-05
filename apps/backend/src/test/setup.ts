@@ -17,6 +17,7 @@ ensureTestEnv('CLERK_WEBHOOK_SIGNING_SECRET', 'whsec_test_harness')
 ensureTestEnv('STRIPE_SECRET_KEY', 'sk_test_harness')
 ensureTestEnv('STRIPE_WEBHOOK_SECRET', 'whsec_test_harness')
 ensureTestEnv('ADMIN_API_KEY', 'test-admin-key')
+ensureTestEnv('OPENROUTER_API_KEY', 'sk-or-test-harness')
 ensureTestEnv('CORS_ORIGINS', '*')
 process.env.NODE_ENV = 'test'
 

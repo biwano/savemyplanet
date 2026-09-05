@@ -27,7 +27,7 @@ TypeScript end-to-end so the backend can use Klima’s x402 client (`@klimadao/x
 | ORM | **Drizzle** | TypeScript-first SQL access to Neon Postgres. |
 | Signing | **viem** | Matches Klima examples for the x402 relay path. |
 | Payments | **Stripe** | Fiat deposits via Apple/Google Pay. |
-| AI | **OpenAI / Gemini API** | LLM for activity evaluation. |
+| AI | **OpenRouter** | LLM for activity evaluation (OpenAI-compatible models). |
 
 Hono stays a thin API. Put markup, funding checks, and x402 orchestration in plain modules — not inside the framework.
 

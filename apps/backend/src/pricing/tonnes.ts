@@ -6,6 +6,15 @@ export const MIN_TONNES = 0.001
 const TONNES_DECIMALS = 6
 
 /**
+ * Format a positive tonnes amount for DB / Klima decimal strings
+ * (no scientific notation, trimmed trailing zeros).
+ */
+export function formatTonnesDecimal(raw: number): string {
+  const fixed = raw.toFixed(TONNES_DECIMALS)
+  return fixed.includes('.') ? fixed.replace(/\.?0+$/, '') : fixed
+}
+
+/**
  * Normalize a JSON tonnes value to a decimal string suitable for Klima `amount`
  * and DB `numeric` (no scientific notation, trimmed trailing zeros).
  */
@@ -18,10 +27,7 @@ export function normalizeTonnes(raw: number): string {
   }
 
   // Avoid float noise: fix to micro-tonne precision then strip trailing zeros.
-  const fixed = raw.toFixed(TONNES_DECIMALS)
-  const normalized = fixed.includes('.')
-    ? fixed.replace(/\.?0+$/, '')
-    : fixed
+  const normalized = formatTonnesDecimal(raw)
   const asNumber = Number(normalized)
   if (!Number.isFinite(asNumber) || asNumber < MIN_TONNES) {
     throw new AppError(400, 'invalid_tonnes')
