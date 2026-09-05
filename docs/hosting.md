@@ -25,6 +25,12 @@ Optional later, not the API host: Cloudflare Pages for an Expo web preview; Clou
 - **USDC (or kVCM) on Base** in the backend service wallet. Hosting is free; retiring credits is not. Keep this balance off user devices.
 - Production SLOs (no sleep, backups beyond Neon’s short restore window, a custom domain with SLA).
 
+## CI (integration tests)
+
+[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) runs `pnpm test` against a real Neon database. Configure a repository secret **`STAGING_DATABASE_URL`** (Neon connection string; host must contain `neon.tech`). Prefer a **staging branch** URL, not production.
+
+Without this secret, GitHub injects an empty `DATABASE_URL` and tests would otherwise fall back to localhost — which cannot work with the Neon serverless WebSocket driver.
+
 ## Production DB migrations
 
 After **CI succeeds** on a **push** to `main`, [`.github/workflows/migrate-production.yml`](../.github/workflows/migrate-production.yml) runs `pnpm db:migrate` when the commit touches `apps/backend/drizzle/**`, `apps/backend/src/db/schema/**`, or `apps/backend/drizzle.config.ts`.

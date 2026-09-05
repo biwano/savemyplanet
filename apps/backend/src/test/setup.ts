@@ -8,10 +8,34 @@ function ensureTestEnv(name: string, fallback: string): void {
   }
 }
 
-ensureTestEnv(
-  'DATABASE_URL',
-  'postgresql://test:test@127.0.0.1:5432/savemyplanet_test',
-)
+/**
+ * Integration tests use a real Neon DB via `@neondatabase/serverless` (WebSocket).
+ * A missing CI secret must not silently fall back to localhost — that yields
+ * `wss://127.0.0.1/v2` blocked by MSW and opaque query failures.
+ */
+function ensureDatabaseUrl(): void {
+  const raw = process.env.DATABASE_URL?.trim()
+  if (process.env.CI === 'true') {
+    if (!raw) {
+      throw new Error(
+        'DATABASE_URL is required in CI (set GitHub secret STAGING_DATABASE_URL to a Neon URL).',
+      )
+    }
+    if (!raw.includes('neon.tech')) {
+      throw new Error(
+        'DATABASE_URL in CI must be a Neon connection string (host contains neon.tech).',
+      )
+    }
+    return
+  }
+
+  ensureTestEnv(
+    'DATABASE_URL',
+    'postgresql://test:test@127.0.0.1:5432/savemyplanet_test',
+  )
+}
+
+ensureDatabaseUrl()
 ensureTestEnv('CLERK_SECRET_KEY', 'sk_test_harness')
 ensureTestEnv('CLERK_PUBLISHABLE_KEY', 'pk_test_harness')
 ensureTestEnv('CLERK_WEBHOOK_SIGNING_SECRET', 'whsec_test_harness')
