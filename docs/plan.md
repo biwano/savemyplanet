@@ -179,15 +179,15 @@ Service wallet: `KLIMA_PAYER_PRIVATE_KEY` only on the server. USDC on Base; no E
 Timeouts: Cloud Run request timeout ≥ Klima wait (start at 60s, raise if needed). If we still hit limits, only then split into `202` + `GET /retirements/:id` polling — that is an explicit follow-up, not v1.
 
 - [x] Tests: success path resets evaluations to 10; Klima failure leaves remaining unchanged.
-- [ ] **Follow-up:** background/job or on-read retry for `pending_index` rows — poll Klima `/certificate` by `txHash`, store `certificateUrl`, flip status to `settled`.
+- [x] **Follow-up:** background/job or on-read retry for `pending_index` rows — poll Klima `/certificate` by `txHash`, store `certificateUrl`, flip status to `settled`.
 - [ ] **Follow-up:** reconcile when Klima succeeds on-chain but local `capture`/settle then fails — row can stick at `submitted` with funds still reserved; recover tx hash, capture, and move to `settled` / `pending_index`.
 
 ### B9. Retirement history
 
-- [ ] **Done when:** settled row matches Carbonmark URL from x402.
+- [x] **Done when:** settled row matches Carbonmark URL from x402.
 
-- [ ] `GET /retirements` list for the user.
-- [ ] `GET /retirements/:id` status + certificate URL when settled.
+- [x] `GET /retirements` list for the user.
+- [x] `GET /retirements/:id` status + certificate URL when settled.
 
 ### B10. Deploy backend
 
@@ -360,7 +360,7 @@ Does **not** block B8–B10 or API freeze. Goal: rate-limit **every** HTTP route
 - [x] B5–B6 Klima reads + marked-up quotes
 - [x] B7 evaluations
 - [x] B7b evaluation quota + derived beneficiaryAddress
-- [ ] B8–B9 retire + history (reset quota on settle) — B8 done; B9 open
+- [x] B8–B9 retire + history (reset quota on settle)
 - [ ] B10 Cloud Run + Neon + secrets
 - [ ] *Freeze API table*
 - [ ] M1–M3 shell, auth (Clerk), evaluate (LLM)

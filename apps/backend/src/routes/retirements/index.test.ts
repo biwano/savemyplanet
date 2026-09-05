@@ -1,24 +1,28 @@
 import { and, eq } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { AppError } from '../errors'
-import { creditFundingManual } from '../ledger/index'
-import { ledgerEntries } from '../db/schema/ledgerEntries'
-import { quotes } from '../db/schema/quotes'
-import { retirements } from '../db/schema/retirements'
-import { users } from '../db/schema/users'
-import { createUserQuote } from '../quotes/create'
-import { createTestApp } from '../test/app'
-import { authHeader, mockClerkAuth } from '../test/auth'
+import { AppError } from '../../errors'
+import { creditFundingManual } from '../../ledger/index'
+import { ledgerEntries } from '../../db/schema/ledgerEntries'
+import { quotes } from '../../db/schema/quotes'
+import { retirements } from '../../db/schema/retirements'
+import { users } from '../../db/schema/users'
+import { createUserQuote } from '../../quotes/create'
+import { createTestApp } from '../../test/app'
+import { authHeader, mockClerkAuth } from '../../test/auth'
 import {
   createTestUser,
   deleteTestUserByClerkId,
   testDb,
-} from '../test/db'
-import { mockKlimaPricing, mockKlimaRetire } from '../test/mocks'
-import { beneficiaryAddressFromUserId } from '../users/beneficiary'
-import { INITIAL_EVALUATIONS_REMAINING } from '../users/quota'
-import type { LocalUser } from '../users/sync'
+} from '../../test/db'
+import {
+  mockKlimaCertificate,
+  mockKlimaPricing,
+  mockKlimaRetire,
+} from '../../test/mocks'
+import { beneficiaryAddressFromUserId } from '../../users/beneficiary'
+import { INITIAL_EVALUATIONS_REMAINING } from '../../users/quota'
+import type { LocalUser } from '../../users/sync'
 
 describe('POST /retirements', () => {
   let user: LocalUser
@@ -400,5 +404,74 @@ describe('POST /retirements', () => {
 
     expect(second.status).toBe(409)
     expect(await second.json()).toMatchObject({ error: 'quote_already_used' })
+  })
+})
+
+describe('GET /retirements', () => {
+  let user: LocalUser
+
+  beforeEach(async () => {
+    user = await createTestUser()
+    mockClerkAuth(user.clerkId)
+  })
+
+  afterEach(async () => {
+    await deleteTestUserByClerkId(user.clerkId)
+  })
+
+  it('returns 401 without Authorization', async () => {
+    const app = createTestApp()
+    const res = await app.request('/retirements')
+    expect(res.status).toBe(401)
+    expect(await res.json()).toEqual({ error: 'unauthorized' })
+  })
+
+  it('lists retirements and resolves pending_index on read', async () => {
+    mockKlimaPricing()
+    await creditFundingManual({ userId: user.id, amountCents: 10_000 })
+    const quote = await createUserQuote({ userId: user.id, tonnes: 1 })
+    const txHash =
+      '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+    mockKlimaRetire({
+      status: 'pending_index',
+      transactionHash: txHash,
+      certificateUrl: null,
+    })
+
+    const app = createTestApp()
+    const create = await app.request('/retirements', {
+      method: 'POST',
+      headers: { ...authHeader(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        quoteId: quote.quoteId,
+        beneficiaryString: 'Ada',
+      }),
+    })
+    expect(create.status).toBe(200)
+    const { id } = (await create.json()) as { id: string }
+
+    const certificateUrl =
+      'https://carbonmark.com/retirements/list-resolved'
+    mockKlimaCertificate({ transactionHash: txHash, certificateUrl })
+
+    const res = await app.request('/retirements', { headers: authHeader() })
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({
+      items: [
+        {
+          id,
+          status: 'settled',
+          tonnes: 1,
+          userTotal: quote.userTotal,
+          certificateUrl,
+          txHash,
+        },
+      ],
+    })
+
+    const row = await testDb.query.retirements.findFirst({
+      where: eq(retirements.id, id),
+    })
+    expect(row).toMatchObject({ status: 'settled', certificateUrl })
   })
 })

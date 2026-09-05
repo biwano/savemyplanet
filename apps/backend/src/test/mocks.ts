@@ -123,3 +123,19 @@ export function mockKlimaRetire(
   }
   return vi.spyOn(klima, 'retire').mockResolvedValue(result)
 }
+
+/** Stub Klima `/certificate` lookup for pending_index resolve (no x402 network). */
+export function mockKlimaCertificate(
+  result:
+    | Awaited<ReturnType<typeof klima.certificate>>
+    | Error = {
+      transactionHash:
+        '0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
+      certificateUrl: 'https://carbonmark.com/retirements/test-cert',
+    },
+) {
+  if (result instanceof Error) {
+    return vi.spyOn(klima, 'certificate').mockRejectedValue(result)
+  }
+  return vi.spyOn(klima, 'certificate').mockResolvedValue(result)
+}

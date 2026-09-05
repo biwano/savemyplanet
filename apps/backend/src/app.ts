@@ -8,7 +8,8 @@ import { evaluationsRoutes } from './routes/evaluations'
 import { healthRoutes } from './routes/health'
 import { meRoutes } from './routes/me'
 import { quotesRoutes } from './routes/quotes'
-import { retirementsRoutes } from './routes/retirements'
+import { retirementByIdRoutes } from './routes/retirements/id'
+import { retirementsRoutes } from './routes/retirements/index'
 import { webhooksClerkRoutes } from './routes/webhooks/clerk'
 import { webhooksStripeRoutes } from './routes/webhooks/stripe'
 
@@ -29,6 +30,7 @@ export function createApp() {
   app.route('/evaluations', evaluationsRoutes)
   app.route('/quotes', quotesRoutes)
   app.route('/retirements', retirementsRoutes)
+  app.route('/retirements/:id', retirementByIdRoutes)
   app.route('/webhooks/clerk', webhooksClerkRoutes)
   app.route('/webhooks/stripe', webhooksStripeRoutes)
 

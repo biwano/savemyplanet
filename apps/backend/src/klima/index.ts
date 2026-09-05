@@ -11,6 +11,7 @@ import {
 import { mapKlimaError } from './errors'
 import {
   createClient,
+  KlimaRetireError,
   type DiscoverFilters,
   type Eip712TypedData,
   type KlimaClient,
@@ -79,6 +80,12 @@ export type KlimaRetireResult = {
   status: RetireResult['status']
   transactionHash: string
   certificateUrl: string | null
+}
+
+/** Carbonmark certificate lookup by tx hash (Klima `/certificate`). */
+export type KlimaCertificateResult = {
+  transactionHash: string
+  certificateUrl: string
 }
 
 type SignTypedDataParams = Parameters<PrivateKeyAccount['signTypedData']>[0]
@@ -280,6 +287,43 @@ export async function quote(input: KlimaQuoteInput): Promise<KlimaQuoteResult> {
     })
     return result
   } catch (err) {
+    mapKlimaError(err)
+  }
+}
+
+/**
+ * Resolve the public Carbonmark certificate for a mined retirement tx.
+ * Returns `null` while the subgraph is still indexing (`404 retirement_not_found`)
+ * or when Klima has not yet attached a `certificateUrl`.
+ */
+export async function certificate(
+  txHash: string,
+): Promise<KlimaCertificateResult | null> {
+  try {
+    const raw = await getClient().certificate({ txHash })
+    if (typeof raw.transactionHash !== 'string' || !raw.transactionHash) {
+      throw new AppError(502, 'klima_invalid_certificate')
+    }
+    if (!Array.isArray(raw.retirements)) {
+      throw new AppError(502, 'klima_invalid_certificate')
+    }
+    const certificateUrl =
+      raw.retirements.find((r) => typeof r.certificateUrl === 'string')
+        ?.certificateUrl ?? null
+    if (!certificateUrl) {
+      return null
+    }
+    return {
+      transactionHash: raw.transactionHash,
+      certificateUrl,
+    }
+  } catch (err) {
+    if (
+      err instanceof KlimaRetireError &&
+      (err.status === 404 || err.code === 'retirement_not_found')
+    ) {
+      return null
+    }
     mapKlimaError(err)
   }
 }
