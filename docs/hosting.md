@@ -25,6 +25,12 @@ Optional later, not the API host: Cloudflare Pages for an Expo web preview; Clou
 - **USDC (or kVCM) on Base** in the backend service wallet. Hosting is free; retiring credits is not. Keep this balance off user devices.
 - Production SLOs (no sleep, backups beyond Neon’s short restore window, a custom domain with SLA).
 
+## Production DB migrations
+
+After **CI succeeds** on a **push** to `main`, [`.github/workflows/migrate-production.yml`](../.github/workflows/migrate-production.yml) runs `pnpm db:migrate` when the commit touches `apps/backend/drizzle/**`, `apps/backend/src/db/schema/**`, or `apps/backend/drizzle.config.ts`.
+
+Configure a GitHub Environment named **`production`** with secret **`PRODUCTION_DATABASE_URL`**. Prefer a **direct** (non-pooler) Neon connection string for drizzle-kit migrate.
+
 ## Constraints
 
 - The Expo app must use the Cloud Run HTTPS URL. No x402 from the client.

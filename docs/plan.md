@@ -191,7 +191,7 @@ Timeouts: Cloud Run request timeout ≥ Klima wait (start at 60s, raise if neede
 
 - [ ] **Done when:** register → credit (admin) → quote → retire works against the deployed API with a funded service wallet. Record the public base URL for mobile.
 
-- [ ] Neon project in AWS `eu-central-1` (Frankfurt) + migrate.
+- [ ] Neon project in AWS `eu-central-1` (Frankfurt) + migrate. Production migrate: GitHub Action after CI on `main` (schema/drizzle paths only); Environment `production`, secret `PRODUCTION_DATABASE_URL` (direct Neon URL). See [hosting.md](hosting.md).
 - [ ] Cloud Run in `europe-west1` (Belgium) or `europe-west9` (Paris): image from `apps/backend/Dockerfile`, secrets (`DATABASE_URL`, `CLERK_SECRET_KEY`, `STRIPE_SECRET`, `KLIMA_PAYER_PRIVATE_KEY`).
 - [ ] Outbound HTTPS to `x402.klimalabs.com` and OpenRouter allowed.
 - [ ] `GET /health` on the `*.run.app` URL.
