@@ -37,6 +37,19 @@ export function mockStripeConstructEvent(event: {
   vi.spyOn(stripeClient, 'getStripe').mockReturnValue(stripe)
 }
 
+/** Reject Stripe webhook signatures (invalid / tampered). */
+export function mockStripeConstructEventInvalid(
+  message = 'invalid signature',
+): void {
+  const constructEvent = vi.fn().mockImplementation(() => {
+    throw new Error(message)
+  })
+  const stripe = {
+    webhooks: { constructEvent },
+  } as unknown as Stripe
+  vi.spyOn(stripeClient, 'getStripe').mockReturnValue(stripe)
+}
+
 /** Stub Clerk webhook verification (`@clerk/backend/webhooks`). */
 export function mockClerkWebhook(event: WebhookEvent): void {
   vi.mocked(verifyWebhook).mockResolvedValue(event)
@@ -54,7 +67,7 @@ export function mockKlimaPricing(input?: {
   discover?: KlimaDiscoverResult
   quote?: KlimaQuoteResult
 }): void {
-  const carbonClassId = 'test-class'
+  const carbonClassId = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
   vi.spyOn(klima, 'discover').mockResolvedValue(
     input?.discover ?? {
       carbonClasses: [
@@ -62,12 +75,19 @@ export function mockKlimaPricing(input?: {
           carbonClassId,
           name: 'Test Class',
           priceUsdcPerTonneFormatted: '10.00',
+          creditsDetailed: [
+            {
+              tokenAddress: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+              liquidityFormatted: '1000',
+            },
+          ],
         },
       ],
     },
   )
   vi.spyOn(klima, 'quote').mockResolvedValue(
     input?.quote ?? {
+      // $10.00 USDC wholesale (6-decimal base units).
       total: '10000000',
       totalFormatted: '10.00',
       tonnesFormatted: '1',

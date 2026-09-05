@@ -288,7 +288,7 @@ Does **not** block B7–B10 or API freeze. Goal: cover every **existing** route 
 
 ### T1. Existing routes
 
-- [ ] **Done when:** each file below has a colocated `*.test.ts` with the cases noted.
+- [x] **Done when:** each file below has a colocated `*.test.ts` with the cases noted.
 
 | Route file | Endpoint | Cover at least |
 | --- | --- | --- |
@@ -315,4 +315,4 @@ After T1, keep the AGENTS rule: every new route lands with its colocated test.
 - [ ] M1–M3 shell, auth (Clerk), evaluate (LLM)
 - [ ] M4–M5 retire UX (classes) + certificate
 - [ ] M6 EAS preview
-- [ ] *Side:* T0–T1 endpoint test catch-up (parallel OK) — T0 done; T1 remaining
+- [x] *Side:* T0–T1 endpoint test catch-up (parallel OK) — T0–T1 done

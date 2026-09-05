@@ -42,5 +42,6 @@ vi.mock('@clerk/backend/webhooks', async (importOriginal) => {
 })
 
 beforeEach(() => {
+  vi.restoreAllMocks()
   vi.clearAllMocks()
 })
