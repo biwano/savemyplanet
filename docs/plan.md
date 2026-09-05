@@ -137,7 +137,7 @@ Vendor or install `@klimadao/x402-retire` / `klima-retire.ts`. Wrap it:
 
 ### B7b. Evaluation quota + user beneficiary address
 
-- [ ] **Done when:** new users have 10 evaluations; each success decrements; zero blocks `POST /evaluations`; a settled retirement resets to 10; `GET /me` exposes remaining count + derived `beneficiaryAddress`.
+- [x] **Done when:** new users have 10 evaluations; each success decrements; zero blocks `POST /evaluations`; a settled retirement resets to 10; `GET /me` exposes remaining count + derived `beneficiaryAddress`.
 
 Product rules: [product.md](product.md) (quota + default beneficiary).
 
@@ -150,27 +150,27 @@ Product rules: [product.md](product.md) (quota + default beneficiary).
 
 ### B8. Retire (orchestration)
 
-- [ ] **Done when:** (testnet or tiny mainnet amount) funded user retires; balance drops by **user_total**; certificate URL stored; a forced Klima failure refunds the reserve; settled success resets evaluations to 10.
+- [x] **Done when:** (testnet or tiny mainnet amount) funded user retires; balance drops by **user_total**; certificate URL stored; a forced Klima failure refunds the reserve; settled success resets evaluations to 10.
 
-`POST /retirements` `{ quote_id, beneficiaryString, retirementMessage?, confirm: true }`
-
-Require `confirm: true`. Without it, 400.
+`POST /retirements` `{ quoteId, beneficiaryString, retirementMessage? }`
 
 **Beneficiary address:** do not require the client to send `beneficiaryAddress`. On retire, set Klima `details.beneficiaryAddress` to the address derived from the user’s UUID ([product.md](product.md)). `beneficiaryString` remains the human-readable certificate name from the client.
 
 State machine:
 
 ```
-quoted → reserved → submitted → settled
-                 ↘ released (Klima failed / expired quote)
+reserved → submitted → settled
+                    ↘ pending_index → settled (certificate indexed later)
+          ↘ released (Klima failed / expired quote)
 ```
 
 1. Load quote; 400 if expired or already used.
 2. If `available < user_total` → `402`/`409` insufficient_funds.
 3. **Reserve** `user_total` (available ↓, reserved ↑, ledger `reserve`).
 4. Sign + relay via Klima (`retire()` / prepare-auth → actions/retire) from the **service wallet**, using the user’s derived `beneficiaryAddress`.
-5. On Klima success: ledger `capture`, store tx hash + certificate; set `users.evaluations_remaining = 10`.
-6. On Klima failure: ledger `release`, reserved ↓, available ↑. User is not charged; **do not** reset evaluation quota.
+5. On Klima `settled`: ledger `capture`, store tx hash + certificate; set `users.evaluations_remaining = 10`.
+6. On Klima `pending_index`: ledger `capture`, store tx hash, status `pending_index` (no certificate yet); also set `users.evaluations_remaining = 10`.
+7. On Klima failure: ledger `release`, reserved ↓, available ↑. User is not charged; **do not** reset evaluation quota.
 
 Dry-run / test retirements use a **staging environment** (Stripe test keys + Neon branch), not a staged flag in production.
 
@@ -178,7 +178,9 @@ Service wallet: `KLIMA_PAYER_PRIVATE_KEY` only on the server. USDC on Base; no E
 
 Timeouts: Cloud Run request timeout ≥ Klima wait (start at 60s, raise if needed). If we still hit limits, only then split into `202` + `GET /retirements/:id` polling — that is an explicit follow-up, not v1.
 
-- [ ] Tests: success path resets evaluations to 10; Klima failure leaves remaining unchanged.
+- [x] Tests: success path resets evaluations to 10; Klima failure leaves remaining unchanged.
+- [ ] **Follow-up:** background/job or on-read retry for `pending_index` rows — poll Klima `/certificate` by `txHash`, store `certificateUrl`, flip status to `settled`.
+- [ ] **Follow-up:** reconcile when Klima succeeds on-chain but local `capture`/settle then fails — row can stick at `submitted` with funds still reserved; recover tx hash, capture, and move to `settled` / `pending_index`.
 
 ### B9. Retirement history
 
@@ -214,7 +216,7 @@ User-facing JSON. Field names are the freeze; change only with a version bump.
 | POST | `/evaluations` | yes | `{ suggestedTonnes, rationale, evaluationsRemaining }` (403/409 if quota exhausted) |
 | GET | `/classes` | yes | `{ classes: [...] }` (list Klima classes) |
 | POST | `/quotes` | yes | `{ quoteId, carbonClass, tonnes, userTotal, currency, expiresAt }` |
-| POST | `/retirements` | yes | `{ id, status, certificateUrl? }` (server sets `beneficiaryAddress` from user UUID; body still takes `beneficiaryString`) |
+| POST | `/retirements` | yes | `{ id, status, createdAt, certificateUrl? }` (server sets `beneficiaryAddress` from user UUID; body still takes `beneficiaryString`) |
 | GET | `/retirements` | yes | `{ items: [...] }` |
 | GET | `/retirements/:id` | yes | `{ id, status, tonnes, userTotal, certificateUrl?, txHash? }` |
 
@@ -263,7 +265,7 @@ Default: evaluation requires auth (simpler). Logged-out evaluate is a later cont
 - [ ] Browse `/classes` and select one.
 - [ ] Request `/quotes` for the chosen tonnes + class.
 - [ ] Show **our** price (marked-up), tonnes, beneficiary name (`beneficiaryString`). Do not ask the user for a wallet/`beneficiaryAddress` — backend applies the UUID-derived default.
-- [ ] Explicit Confirm control (maps to `confirm: true`).
+- [ ] Explicit Confirm control in the UI before calling `POST /retirements`.
 - [ ] Errors: insufficient funds → prompt to deposit (Stripe).
 - [ ] After settled retirement: refresh `/me` so evaluation quota shows 10 again.
 
@@ -357,8 +359,8 @@ Does **not** block B8–B10 or API freeze. Goal: rate-limit **every** HTTP route
 - [x] B1–B4 skeleton, DB, auth, ledger
 - [x] B5–B6 Klima reads + marked-up quotes
 - [x] B7 evaluations
-- [ ] B7b evaluation quota + derived beneficiaryAddress
-- [ ] B8–B9 retire + history (reset quota on settle)
+- [x] B7b evaluation quota + derived beneficiaryAddress
+- [ ] B8–B9 retire + history (reset quota on settle) — B8 done; B9 open
 - [ ] B10 Cloud Run + Neon + secrets
 - [ ] *Freeze API table*
 - [ ] M1–M3 shell, auth (Clerk), evaluate (LLM)

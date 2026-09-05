@@ -5,8 +5,12 @@ import { quotes } from './quotes'
 export const retirements = pgTable('retirements', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').references(() => users.id).notNull(),
-  quoteId: uuid('quote_id').references(() => quotes.id),
-  status: text('status').notNull(), // quoted, reserved, submitted, settled, released
+  /** One retirement attempt per quote (enforced unique). */
+  quoteId: uuid('quote_id')
+    .references(() => quotes.id)
+    .notNull()
+    .unique(),
+  status: text('status').notNull(), // reserved, submitted, pending_index, settled, released
   tonnes: numeric('tonnes').notNull(),
   beneficiaryString: text('beneficiary_string').notNull(),
   retirementMessage: text('retirement_message'),

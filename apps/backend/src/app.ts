@@ -8,6 +8,7 @@ import { evaluationsRoutes } from './routes/evaluations'
 import { healthRoutes } from './routes/health'
 import { meRoutes } from './routes/me'
 import { quotesRoutes } from './routes/quotes'
+import { retirementsRoutes } from './routes/retirements'
 import { webhooksClerkRoutes } from './routes/webhooks/clerk'
 import { webhooksStripeRoutes } from './routes/webhooks/stripe'
 
@@ -27,6 +28,7 @@ export function createApp() {
   app.route('/account/credit', accountCreditRoutes)
   app.route('/evaluations', evaluationsRoutes)
   app.route('/quotes', quotesRoutes)
+  app.route('/retirements', retirementsRoutes)
   app.route('/webhooks/clerk', webhooksClerkRoutes)
   app.route('/webhooks/stripe', webhooksStripeRoutes)
 

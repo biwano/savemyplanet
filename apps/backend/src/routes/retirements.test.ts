@@ -1,0 +1,404 @@
+import { and, eq } from 'drizzle-orm'
+import { randomUUID } from 'node:crypto'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { AppError } from '../errors'
+import { creditFundingManual } from '../ledger/index'
+import { ledgerEntries } from '../db/schema/ledgerEntries'
+import { quotes } from '../db/schema/quotes'
+import { retirements } from '../db/schema/retirements'
+import { users } from '../db/schema/users'
+import { createUserQuote } from '../quotes/create'
+import { createTestApp } from '../test/app'
+import { authHeader, mockClerkAuth } from '../test/auth'
+import {
+  createTestUser,
+  deleteTestUserByClerkId,
+  testDb,
+} from '../test/db'
+import { mockKlimaPricing, mockKlimaRetire } from '../test/mocks'
+import { beneficiaryAddressFromUserId } from '../users/beneficiary'
+import { INITIAL_EVALUATIONS_REMAINING } from '../users/quota'
+import type { LocalUser } from '../users/sync'
+
+describe('POST /retirements', () => {
+  let user: LocalUser
+
+  beforeEach(async () => {
+    user = await createTestUser()
+    mockClerkAuth(user.clerkId)
+  })
+
+  afterEach(async () => {
+    await deleteTestUserByClerkId(user.clerkId)
+  })
+
+  async function fundedQuote(amountCents = 5000) {
+    mockKlimaPricing()
+    await creditFundingManual({ userId: user.id, amountCents })
+    return createUserQuote({ userId: user.id, tonnes: 1 })
+  }
+
+  it('returns 401 without Authorization', async () => {
+    const app = createTestApp()
+    const res = await app.request('/retirements', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        quoteId: '00000000-0000-4000-8000-000000000001',
+        beneficiaryString: 'Ada',
+      }),
+    })
+
+    expect(res.status).toBe(401)
+    expect(await res.json()).toEqual({ error: 'unauthorized' })
+  })
+
+  it('rejects invalid body at the schema', async () => {
+    const app = createTestApp()
+    const res = await app.request('/retirements', {
+      method: 'POST',
+      headers: { ...authHeader(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        quoteId: 'not-a-uuid',
+        beneficiaryString: '',
+      }),
+    })
+
+    expect(res.status).toBe(400)
+    expect(await res.json()).toMatchObject({ error: 'invalid_body' })
+  })
+
+  it('returns 404 when the quote does not exist', async () => {
+    await creditFundingManual({ userId: user.id, amountCents: 5000 })
+    mockKlimaRetire()
+
+    const app = createTestApp()
+    const res = await app.request('/retirements', {
+      method: 'POST',
+      headers: { ...authHeader(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        quoteId: randomUUID(),
+        beneficiaryString: 'Ada',
+      }),
+    })
+
+    expect(res.status).toBe(404)
+    expect(await res.json()).toMatchObject({ error: 'quote_not_found' })
+  })
+
+  it('returns 402 when available balance is insufficient', async () => {
+    mockKlimaPricing()
+    const quote = await createUserQuote({ userId: user.id, tonnes: 1 })
+
+    const app = createTestApp()
+    const res = await app.request('/retirements', {
+      method: 'POST',
+      headers: { ...authHeader(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        quoteId: quote.quoteId,
+        beneficiaryString: 'Ada',
+      }),
+    })
+
+    expect(res.status).toBe(402)
+    expect(await res.json()).toMatchObject({ error: 'insufficient_funds' })
+  })
+
+  it('settles success: captures balance, stores certificate, resets evaluations to 10', async () => {
+    const quote = await fundedQuote()
+    await testDb
+      .update(users)
+      .set({ evaluationsRemaining: 3 })
+      .where(eq(users.id, user.id))
+
+    const retireSpy = mockKlimaRetire({
+      status: 'settled',
+      transactionHash:
+        '0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
+      certificateUrl: 'https://carbonmark.com/retirements/b8-success',
+    })
+
+    const app = createTestApp()
+    const res = await app.request('/retirements', {
+      method: 'POST',
+      headers: { ...authHeader(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        quoteId: quote.quoteId,
+        beneficiaryString: 'Ada Lovelace',
+        retirementMessage: 'For the planet',
+      }),
+    })
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body).toEqual({
+      id: expect.any(String),
+      status: 'settled',
+      createdAt: expect.any(String),
+      certificateUrl: 'https://carbonmark.com/retirements/b8-success',
+    })
+    expect(body).not.toHaveProperty('klimaTotal')
+    expect(JSON.stringify(body)).not.toMatch(/klima_total/i)
+
+    expect(retireSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        amount: '1',
+        carbonClass: quote.carbonClass,
+        beneficiaryAddress: beneficiaryAddressFromUserId(user.id),
+        beneficiaryString: 'Ada Lovelace',
+        retirementMessage: 'For the planet',
+      }),
+    )
+
+    const row = await testDb.query.retirements.findFirst({
+      where: eq(retirements.id, body.id),
+    })
+    expect(row).toMatchObject({
+      userId: user.id,
+      quoteId: quote.quoteId,
+      status: 'settled',
+      beneficiaryString: 'Ada Lovelace',
+      retirementMessage: 'For the planet',
+      txHash:
+        '0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
+      certificateUrl: 'https://carbonmark.com/retirements/b8-success',
+    })
+    expect(body.createdAt).toBe(row?.createdAt.toISOString())
+
+    const [balance] = await testDb
+      .select()
+      .from(users)
+      .where(eq(users.id, user.id))
+    expect(balance.availableCents).toBe(5000 - quote.userTotal)
+    expect(balance.reservedCents).toBe(0)
+    expect(balance.evaluationsRemaining).toBe(INITIAL_EVALUATIONS_REMAINING)
+
+    const entries = await testDb
+      .select({ type: ledgerEntries.type, amountCents: ledgerEntries.amountCents })
+      .from(ledgerEntries)
+      .where(
+        and(
+          eq(ledgerEntries.userId, user.id),
+          eq(ledgerEntries.retirementId, body.id),
+        ),
+      )
+    expect(entries).toEqual(
+      expect.arrayContaining([
+        { type: 'reserve', amountCents: quote.userTotal },
+        { type: 'capture', amountCents: quote.userTotal },
+      ]),
+    )
+    expect(entries.some((e) => e.type === 'release')).toBe(false)
+  })
+
+  it('on Klima pending_index: captures balance, stores tx, resets evaluations to 10', async () => {
+    const quote = await fundedQuote()
+    await testDb
+      .update(users)
+      .set({ evaluationsRemaining: 3 })
+      .where(eq(users.id, user.id))
+
+    mockKlimaRetire({
+      status: 'pending_index',
+      transactionHash:
+        '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+      certificateUrl: null,
+    })
+
+    const app = createTestApp()
+    const res = await app.request('/retirements', {
+      method: 'POST',
+      headers: { ...authHeader(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        quoteId: quote.quoteId,
+        beneficiaryString: 'Ada Lovelace',
+      }),
+    })
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body).toEqual({
+      id: expect.any(String),
+      status: 'pending_index',
+      createdAt: expect.any(String),
+    })
+    expect(body).not.toHaveProperty('certificateUrl')
+
+    const row = await testDb.query.retirements.findFirst({
+      where: eq(retirements.id, body.id),
+    })
+    expect(row).toMatchObject({
+      userId: user.id,
+      quoteId: quote.quoteId,
+      status: 'pending_index',
+      txHash:
+        '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+      certificateUrl: null,
+    })
+
+    const [balance] = await testDb
+      .select()
+      .from(users)
+      .where(eq(users.id, user.id))
+    expect(balance.availableCents).toBe(5000 - quote.userTotal)
+    expect(balance.reservedCents).toBe(0)
+    expect(balance.evaluationsRemaining).toBe(INITIAL_EVALUATIONS_REMAINING)
+
+    const entries = await testDb
+      .select({ type: ledgerEntries.type, amountCents: ledgerEntries.amountCents })
+      .from(ledgerEntries)
+      .where(
+        and(
+          eq(ledgerEntries.userId, user.id),
+          eq(ledgerEntries.retirementId, body.id),
+        ),
+      )
+    expect(entries).toEqual(
+      expect.arrayContaining([
+        { type: 'reserve', amountCents: quote.userTotal },
+        { type: 'capture', amountCents: quote.userTotal },
+      ]),
+    )
+    expect(entries.some((e) => e.type === 'release')).toBe(false)
+  })
+
+  it('on Klima failure: releases reserve, leaves evaluations unchanged', async () => {
+    const quote = await fundedQuote()
+    await testDb
+      .update(users)
+      .set({ evaluationsRemaining: 4 })
+      .where(eq(users.id, user.id))
+
+    mockKlimaRetire(new AppError(502, 'klima_error'))
+
+    const app = createTestApp()
+    const res = await app.request('/retirements', {
+      method: 'POST',
+      headers: { ...authHeader(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        quoteId: quote.quoteId,
+        beneficiaryString: 'Ada',
+      }),
+    })
+
+    expect(res.status).toBe(502)
+    expect(await res.json()).toMatchObject({ error: 'klima_error' })
+
+    const row = await testDb.query.retirements.findFirst({
+      where: eq(retirements.quoteId, quote.quoteId),
+    })
+    expect(row).toMatchObject({
+      userId: user.id,
+      status: 'released',
+      certificateUrl: null,
+      txHash: null,
+    })
+
+    const [balance] = await testDb
+      .select()
+      .from(users)
+      .where(eq(users.id, user.id))
+    expect(balance.availableCents).toBe(5000)
+    expect(balance.reservedCents).toBe(0)
+    expect(balance.evaluationsRemaining).toBe(4)
+
+    const entries = await testDb
+      .select({ type: ledgerEntries.type, amountCents: ledgerEntries.amountCents })
+      .from(ledgerEntries)
+      .where(
+        and(
+          eq(ledgerEntries.userId, user.id),
+          eq(ledgerEntries.retirementId, row!.id),
+        ),
+      )
+    expect(entries).toEqual(
+      expect.arrayContaining([
+        { type: 'reserve', amountCents: quote.userTotal },
+        { type: 'release', amountCents: quote.userTotal },
+      ]),
+    )
+    expect(entries.some((e) => e.type === 'capture')).toBe(false)
+  })
+
+  it('rejects an expired quote', async () => {
+    const quote = await fundedQuote()
+    await testDb
+      .update(quotes)
+      .set({ expiresAt: new Date(Date.now() - 60_000) })
+      .where(eq(quotes.id, quote.quoteId))
+
+    mockKlimaRetire()
+    const app = createTestApp()
+    const res = await app.request('/retirements', {
+      method: 'POST',
+      headers: { ...authHeader(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        quoteId: quote.quoteId,
+        beneficiaryString: 'Ada',
+      }),
+    })
+
+    expect(res.status).toBe(400)
+    expect(await res.json()).toMatchObject({ error: 'quote_expired' })
+  })
+
+  it('rejects a quote already used by a settled retirement', async () => {
+    const quote = await fundedQuote()
+    mockKlimaRetire()
+
+    const app = createTestApp()
+    const first = await app.request('/retirements', {
+      method: 'POST',
+      headers: { ...authHeader(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        quoteId: quote.quoteId,
+        beneficiaryString: 'Ada',
+      }),
+    })
+    expect(first.status).toBe(200)
+
+    // Re-fund so the second attempt fails on quote reuse, not balance.
+    await creditFundingManual({ userId: user.id, amountCents: 5000 })
+
+    const second = await app.request('/retirements', {
+      method: 'POST',
+      headers: { ...authHeader(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        quoteId: quote.quoteId,
+        beneficiaryString: 'Ada',
+      }),
+    })
+
+    expect(second.status).toBe(409)
+    expect(await second.json()).toMatchObject({ error: 'quote_already_used' })
+  })
+
+  it('rejects a quote already used after a released (failed) attempt', async () => {
+    const quote = await fundedQuote()
+    mockKlimaRetire(new AppError(502, 'klima_error'))
+
+    const app = createTestApp()
+    const first = await app.request('/retirements', {
+      method: 'POST',
+      headers: { ...authHeader(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        quoteId: quote.quoteId,
+        beneficiaryString: 'Ada',
+      }),
+    })
+    expect(first.status).toBe(502)
+
+    mockKlimaRetire()
+    const second = await app.request('/retirements', {
+      method: 'POST',
+      headers: { ...authHeader(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        quoteId: quote.quoteId,
+        beneficiaryString: 'Ada',
+      }),
+    })
+
+    expect(second.status).toBe(409)
+    expect(await second.json()).toMatchObject({ error: 'quote_already_used' })
+  })
+})

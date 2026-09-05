@@ -1,3 +1,6 @@
+import { isHex, type Hex } from 'viem'
+import { requireEnv } from '../config'
+
 /** Default: Base mainnet. Sepolia (`84532`) only when explicitly configured. */
 export const KLIMA_CHAIN_ID_MAINNET = 8453
 export const KLIMA_CHAIN_ID_SEPOLIA = 84532
@@ -8,6 +11,9 @@ export const DEFAULT_KLIMA_BASE_URL = 'https://x402.klimalabs.com'
 
 /** How long to reuse a discover catalog (reference prices + liquidity). */
 export const DEFAULT_DISCOVER_CACHE_TTL_MS = 60_000
+
+/** Per-request HTTP timeout for Klima client (Cloud Run ≥ Klima wait). */
+export const DEFAULT_KLIMA_TIMEOUT_MS = 60_000
 
 /** Endpoint origin (no trailing `/api`). Defaults to production x402. */
 export function klimaBaseUrl(): string {
@@ -46,4 +52,19 @@ export function discoverCacheTtlMs(): number {
     )
   }
   return n
+}
+
+/**
+ * Service-wallet private key for x402 relay retirements (USDC on Base).
+ * Never expose to clients or logs.
+ */
+export function klimaPayerPrivateKey(): Hex {
+  const key = requireEnv('KLIMA_PAYER_PRIVATE_KEY')
+  // 0x + 32 bytes hex
+  if (!isHex(key) || key.length !== 66) {
+    throw new Error(
+      'KLIMA_PAYER_PRIVATE_KEY must be a 0x-prefixed 32-byte hex key',
+    )
+  }
+  return key
 }

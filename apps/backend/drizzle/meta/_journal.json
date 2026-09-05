@@ -50,6 +50,13 @@
       "when": 1788631056717,
       "tag": "0006_add_evaluations_remaining",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788633502900,
+      "tag": "0007_retirements_quote_id_unique",
+      "breakpoints": true
     }
   ]
 }

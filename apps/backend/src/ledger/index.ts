@@ -1,10 +1,13 @@
-import { eq, sql } from 'drizzle-orm'
+import { and, eq, gte, sql } from 'drizzle-orm'
 import type { PresentmentCurrency } from '../account/currency'
 import { db } from '../db/index'
 import { ledgerEntries } from '../db/schema/ledgerEntries'
 import { users } from '../db/schema/users'
 import { AppError } from '../errors'
 import type { LocalUser } from '../users/sync'
+
+/** Drizzle transaction client (neon-serverless pool). */
+export type LedgerTx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
 export type CreditFundingInput = {
   userId: string
@@ -140,4 +143,139 @@ export function assertSufficientFunds(
       required: markedUpTotalCents,
     })
   }
+}
+
+function assertPositiveCents(amountCents: number): void {
+  if (!Number.isInteger(amountCents) || amountCents <= 0) {
+    throw new AppError(400, 'invalid_amount')
+  }
+}
+
+export type ReserveInput = {
+  userId: string
+  amountCents: number
+  retirementId: string
+}
+
+/**
+ * Move `amountCents` from available → reserved and insert a `reserve` ledger row.
+ * Conditional update refuses when available is insufficient (402).
+ * Must run inside a DB transaction with the retirement row insert.
+ */
+export async function reserve(
+  input: ReserveInput,
+  tx: LedgerTx,
+): Promise<LocalUser> {
+  const { userId, amountCents, retirementId } = input
+  assertPositiveCents(amountCents)
+
+  await tx.insert(ledgerEntries).values({
+    userId,
+    amountCents,
+    type: 'reserve',
+    retirementId,
+  })
+
+  const [user] = await tx
+    .update(users)
+    .set({
+      availableCents: sql`${users.availableCents} - ${amountCents}`,
+      reservedCents: sql`${users.reservedCents} + ${amountCents}`,
+    })
+    .where(
+      and(eq(users.id, userId), gte(users.availableCents, amountCents)),
+    )
+    .returning()
+
+  if (!user) {
+    throw new AppError(402, 'insufficient_funds', {
+      required: amountCents,
+    })
+  }
+
+  return user
+}
+
+export type CaptureInput = {
+  userId: string
+  amountCents: number
+  retirementId: string
+}
+
+/**
+ * Finalize a spend: drop reserved by `amountCents`, insert a `capture` row.
+ * Available is unchanged (already moved at reserve time).
+ * Must run inside a DB transaction with the retirement settle update.
+ */
+export async function capture(
+  input: CaptureInput,
+  tx: LedgerTx,
+): Promise<LocalUser> {
+  const { userId, amountCents, retirementId } = input
+  assertPositiveCents(amountCents)
+
+  await tx.insert(ledgerEntries).values({
+    userId,
+    amountCents,
+    type: 'capture',
+    retirementId,
+  })
+
+  const [user] = await tx
+    .update(users)
+    .set({
+      reservedCents: sql`${users.reservedCents} - ${amountCents}`,
+    })
+    .where(
+      and(eq(users.id, userId), gte(users.reservedCents, amountCents)),
+    )
+    .returning()
+
+  if (!user) {
+    throw new AppError(409, 'reserve_mismatch')
+  }
+
+  return user
+}
+
+export type ReleaseInput = {
+  userId: string
+  amountCents: number
+  retirementId: string
+}
+
+/**
+ * Undo a reserve after Klima failure: reserved ↓, available ↑, `release` ledger row.
+ * Must run inside a DB transaction with the retirement release update.
+ */
+export async function release(
+  input: ReleaseInput,
+  tx: LedgerTx,
+): Promise<LocalUser> {
+  const { userId, amountCents, retirementId } = input
+  assertPositiveCents(amountCents)
+
+  await tx.insert(ledgerEntries).values({
+    userId,
+    amountCents,
+    type: 'release',
+    retirementId,
+  })
+
+  const [user] = await tx
+    .update(users)
+    .set({
+      availableCents: sql`${users.availableCents} + ${amountCents}`,
+      reservedCents: sql`${users.reservedCents} - ${amountCents}`,
+    })
+    .where(
+      and(eq(users.id, userId), gte(users.reservedCents, amountCents)),
+    )
+    .returning()
+
+  if (!user) {
+    throw new AppError(409, 'reserve_mismatch')
+  }
+
+  return user
 }

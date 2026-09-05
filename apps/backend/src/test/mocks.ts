@@ -4,7 +4,11 @@ import type Stripe from 'stripe'
 import { vi } from 'vitest'
 import type { LlmEvaluation } from '../evaluate/llm'
 import * as evaluateLlm from '../evaluate/llm'
-import type { KlimaDiscoverResult, KlimaQuoteResult } from '../klima/index'
+import type {
+  KlimaDiscoverResult,
+  KlimaQuoteResult,
+  KlimaRetireResult,
+} from '../klima/index'
 import * as klima from '../klima/index'
 import * as stripeClient from '../stripe/client'
 import * as funding from '../stripe/funding'
@@ -103,4 +107,19 @@ export function mockKlimaPricing(input?: {
       tonnesFormatted: '1',
     },
   )
+}
+
+/** Stub Klima retire for `POST /retirements` (no x402 network / payer key). */
+export function mockKlimaRetire(
+  result: KlimaRetireResult | Error = {
+    status: 'settled',
+    transactionHash:
+      '0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
+    certificateUrl: 'https://carbonmark.com/retirements/test-cert',
+  },
+) {
+  if (result instanceof Error) {
+    return vi.spyOn(klima, 'retire').mockRejectedValue(result)
+  }
+  return vi.spyOn(klima, 'retire').mockResolvedValue(result)
 }
