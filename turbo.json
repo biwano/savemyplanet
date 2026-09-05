@@ -12,7 +12,8 @@
       "dependsOn": ["^typecheck"]
     },
     "test": {
-      "cache": false
+      "cache": false,
+      "env": ["DATABASE_URL", "CI"]
     },
     "dev": {
       "cache": false,
