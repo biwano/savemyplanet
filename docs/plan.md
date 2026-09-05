@@ -284,6 +284,7 @@ Does **not** block B7–B10 or API freeze. Goal: cover every **existing** route 
 
 - [x] Vitest (or equivalent) + `test` script in `apps/backend`.
 - [x] Shared helpers: build app, auth stub (Bearer → test user), DB (Neon branch or transactional cleanup), mocks for Stripe / Klima / Clerk webhook verify.
+- [x] MSW network guard in Vitest setup: outbound HTTP fail-closed except Neon/DB hosts; Stripe/Klima/OpenRouter/Clerk must be module-mocked.
 - [x] Pattern: success + important failures (401, 400 validation, domain errors). No wholesale Klima fields in user responses.
 
 ### T1. Existing routes

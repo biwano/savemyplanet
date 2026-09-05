@@ -1,4 +1,5 @@
-import { beforeEach, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, vi } from 'vitest'
+import { networkServer } from './network'
 
 /** Defaults so modules that call `requireEnv` can load without a full `.env`. */
 function ensureTestEnv(name: string, fallback: string): void {
@@ -40,6 +41,19 @@ vi.mock('@clerk/backend/webhooks', async (importOriginal) => {
       throw new Error('verifyWebhook not configured; call mockClerkWebhook()')
     }),
   }
+})
+
+beforeAll(() => {
+  networkServer.listen({ onUnhandledRequest: 'error' })
+})
+
+afterEach(() => {
+  // Restore the catch-all DB allowlist handler (drops any per-test handlers).
+  networkServer.resetHandlers()
+})
+
+afterAll(() => {
+  networkServer.close()
 })
 
 beforeEach(() => {
