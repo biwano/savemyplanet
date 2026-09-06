@@ -335,7 +335,10 @@ export function createClient(options: KlimaClientOptions = {}): KlimaClient {
       onStep?.("prepare", {});
       const prep = await client.prepareAuth(intent);
 
-      onStep?.("sign", { authValueFormatted: prep.authValueFormatted });
+      onStep?.("sign", {
+        authValue: prep.authValue,
+        authValueFormatted: prep.authValueFormatted,
+      });
       const signature = await signTypedData(prep.typedData as Eip712TypedData);
 
       onStep?.("submit", {});

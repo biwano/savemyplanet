@@ -47,15 +47,34 @@ export function applyMarkup(
     scale,
   )
 
-  const klimaTotalCents = Number(ceilDiv(klimaTotalMicros, USDC_MICROS_PER_CENT))
-  const userTotalCents = Number(ceilDiv(userMicros, USDC_MICROS_PER_CENT))
-
-  if (
-    !Number.isSafeInteger(klimaTotalCents) ||
-    !Number.isSafeInteger(userTotalCents)
-  ) {
-    throw new Error('marked-up total exceeds safe integer range')
-  }
+  const klimaTotalCents = usdcMicrosToCeilCents(klimaTotalMicros)
+  const userTotalCents = usdcMicrosToCeilCents(userMicros)
 
   return { klimaTotalCents, userTotalCents }
+}
+
+/** Ceil USDC base units to USD cents (1 cent = 10_000 micros). */
+export function usdcMicrosToCeilCents(micros: bigint): number {
+  if (micros < 0n) {
+    throw new Error('USDC micros must be non-negative')
+  }
+  const cents = Number(ceilDiv(micros, USDC_MICROS_PER_CENT))
+  if (!Number.isSafeInteger(cents)) {
+    throw new Error('USDC amount exceeds safe integer cents range')
+  }
+  return cents
+}
+
+/**
+ * Synthetic auth ceiling for fake retire: reverse the stored ceiled cents
+ * into micros (`cents * 10_000`). Documented staging convention — not a
+ * real prepare-auth value.
+ */
+export function fakeAuthMicrosFromKlimaTotalCents(
+  klimaTotalCents: number,
+): bigint {
+  if (!Number.isInteger(klimaTotalCents) || klimaTotalCents < 0) {
+    throw new Error('klimaTotalCents must be a non-negative integer')
+  }
+  return BigInt(klimaTotalCents) * USDC_MICROS_PER_CENT
 }

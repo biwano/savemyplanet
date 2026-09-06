@@ -170,7 +170,8 @@ describe('GET /retirements/:id', () => {
     })
 
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({
+    const body = await res.json()
+    expect(body).toEqual({
       id,
       status: 'settled',
       tonnes: 1,
@@ -178,6 +179,9 @@ describe('GET /retirements/:id', () => {
       certificateUrl,
       txHash,
     })
+    expect(body).not.toHaveProperty('klimaAuthValueMicros')
+    expect(body).not.toHaveProperty('klimaAuthValueCents')
+    expect(JSON.stringify(body)).not.toMatch(/klima_auth|authValue|klima_total/i)
     expect(certSpy).toHaveBeenCalledWith(txHash)
 
     const row = await testDb.query.retirements.findFirst({

@@ -426,17 +426,17 @@ Low gaps (naive `SUM(quotes)`, manual admin credits) stay out of this side plan.
 
 ### F2. Persist actual Klima USDC authorization on retire
 
-- [ ] **Done when:** each retirement that reaches Klima success (`settled` or `pending_index`) stores the USDC authorization ceiling used at retire time (and, when available, any post-retire quote/total from the Klima result) so COGS can use **actual auth** vs `quotes.klima_total_cents`; released / failed retires do not invent spend rows; fake mode either stores a documented synthetic value or null consistently; user HTTP responses unchanged (no wholesale).
+- [x] **Done when:** each retirement that reaches Klima success (`settled` or `pending_index`) stores the USDC authorization ceiling used at retire time (and, when available, any post-retire quote/total from the Klima result) so COGS can use **actual auth** vs `quotes.klima_total_cents`; released / failed retires do not invent spend rows; fake mode either stores a documented synthetic value or null consistently; user HTTP responses unchanged (no wholesale).
 
-- [ ] Migration (named, e.g. `--name add_retirement_klima_spend`): on `retirements`, nullable server-only columns, e.g.:
+- [x] Migration (named, e.g. `--name add_retirement_klima_spend`): on `retirements`, nullable server-only columns, e.g.:
   - `klima_auth_value_micros` (numeric/text integer string) — EIP-3009 / prepare-auth `authValue` (USDC 6-decimal base units), the signed ceiling
   - `klima_auth_value_cents` (integer) — ceil to cents for easy SUM (same rounding spirit as quotes)
   - Optional: `klima_retire_total_micros` if `RetireResult.quote` (or equivalent) exposes a firm total distinct from auth ceiling
   - Optional: `klima_quoted_total_cents` denormalized copy of the quote’s `klima_total_cents` at settle time (snapshot join-safety if quotes were ever mutated — quotes are immutable today; skip if redundant)
-- [ ] Klima client: capture `authValue` from `prepare-auth` (vendor `onStep('sign', …)` and/or typed prepare response). Prefer integer micros over formatted strings. Thread through `KlimaRetireResult` (real path). Fake path: set auth fields to match the linked quote’s `klima_total` micros **or** leave null — pick one, document in code comment, test it.
-- [ ] Orchestration (`executeRetirement` / `settleRetirement`): on successful capture, write auth (and optional retire-total) columns in the same transaction as status → `settled` / `pending_index`. On release/failure: leave spend columns null.
-- [ ] P&L convention (document in a short comment near schema or settle): **quoted COGS** = `quotes.klima_total_cents`; **authorized COGS** = `retirements.klima_auth_value_cents` (ceiling; unused budget may refund on-chain — note that true post-refund spend may still need chain/indexer later). Contribution margin ≈ `user_total` − authorized (or quoted) − Stripe fees − OpenRouter.
-- [ ] Tests: mocked real retire with known `authValue` → DB re-read; fake retire behavior matches chosen convention; failure → release with null spend columns; `GET /retirements/:id` still has no wholesale fields.
+- [x] Klima client: capture `authValue` from `prepare-auth` (vendor `onStep('sign', …)` and/or typed prepare response). Prefer integer micros over formatted strings. Thread through `KlimaRetireResult` (real path). Fake path: set auth fields to match the linked quote’s `klima_total` micros **or** leave null — pick one, document in code comment, test it.
+- [x] Orchestration (`executeRetirement` / `settleRetirement`): on Klima success, persist auth (and optional retire-total) on the `submitted` row with the tx hash **before** capture/settle (so a settle failure still keeps spend for reconcile); settle leaves those columns untouched while flipping status → `settled` / `pending_index`. On release/failure: leave spend columns null.
+- [x] P&L convention (document in a short comment near schema or settle): **quoted COGS** = `quotes.klima_total_cents`; **authorized COGS** = `retirements.klima_auth_value_cents` (ceiling; unused budget may refund on-chain — note that true post-refund spend may still need chain/indexer later). Contribution margin ≈ `user_total` − authorized (or quoted) − Stripe fees − OpenRouter.
+- [x] Tests: mocked real retire with known `authValue` → DB re-read; fake retire behavior matches chosen convention; failure → release with null spend columns; `GET /retirements/:id` still has no wholesale fields.
 
 ## Order of work (checklist)
 
@@ -457,4 +457,4 @@ Low gaps (naive `SUM(quotes)`, manual admin credits) stay out of this side plan.
 - [x] *Side:* T0–T1 endpoint test catch-up (parallel OK) — T0–T1 done
 - [x] *Side:* N1 network throttling (parallel OK)
 - [x] *Side:* F1 Stripe fee + FX on funding (parallel OK; does not block API freeze)
-- [ ] *Side:* F2 Klima auth/spend on retire (parallel OK; after or with F1)
+- [x] *Side:* F2 Klima auth/spend on retire (parallel OK; after or with F1)

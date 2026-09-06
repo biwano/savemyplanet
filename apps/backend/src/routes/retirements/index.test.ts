@@ -109,18 +109,22 @@ describe('POST /retirements', () => {
     expect(await res.json()).toMatchObject({ error: 'insufficient_funds' })
   })
 
-  it('settles success: captures balance, stores certificate, resets evaluations to 10', async () => {
+  it('settles success: captures balance, stores certificate + Klima auth spend, resets evaluations to 10', async () => {
     const quote = await fundedQuote()
     await testDb
       .update(users)
       .set({ evaluationsRemaining: 3 })
       .where(eq(users.id, user.id))
 
+    const authValueMicros = '10050000' // slightly above $10.00 wholesale
+    const retireTotalMicros = '10000000'
     const retireSpy = mockKlimaRetire({
       status: 'settled',
       transactionHash:
         '0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
       certificateUrl: 'https://carbonmark.com/retirements/b8-success',
+      authValueMicros,
+      retireTotalMicros,
     })
 
     const app = createTestApp()
@@ -143,7 +147,9 @@ describe('POST /retirements', () => {
       certificateUrl: 'https://carbonmark.com/retirements/b8-success',
     })
     expect(body).not.toHaveProperty('klimaTotal')
-    expect(JSON.stringify(body)).not.toMatch(/klima_total/i)
+    expect(body).not.toHaveProperty('klimaAuthValueMicros')
+    expect(body).not.toHaveProperty('klimaAuthValueCents')
+    expect(JSON.stringify(body)).not.toMatch(/klima_total|klima_auth|authValue/i)
 
     expect(retireSpy).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -167,6 +173,9 @@ describe('POST /retirements', () => {
       txHash:
         '0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
       certificateUrl: 'https://carbonmark.com/retirements/b8-success',
+      klimaAuthValueMicros: authValueMicros,
+      klimaAuthValueCents: 1005,
+      klimaRetireTotalMicros: retireTotalMicros,
     })
     expect(body.createdAt).toBe(row?.createdAt.toISOString())
 
@@ -196,18 +205,21 @@ describe('POST /retirements', () => {
     expect(entries.some((e) => e.type === 'release')).toBe(false)
   })
 
-  it('on Klima pending_index: captures balance, stores tx, resets evaluations to 10', async () => {
+  it('on Klima pending_index: captures balance, stores tx + Klima auth spend, resets evaluations to 10', async () => {
     const quote = await fundedQuote()
     await testDb
       .update(users)
       .set({ evaluationsRemaining: 3 })
       .where(eq(users.id, user.id))
 
+    const authValueMicros = '10020000'
     mockKlimaRetire({
       status: 'pending_index',
       transactionHash:
         '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
       certificateUrl: null,
+      authValueMicros,
+      retireTotalMicros: '10000000',
     })
 
     const app = createTestApp()
@@ -228,6 +240,7 @@ describe('POST /retirements', () => {
       createdAt: expect.any(String),
     })
     expect(body).not.toHaveProperty('certificateUrl')
+    expect(body).not.toHaveProperty('klimaAuthValueMicros')
 
     const row = await testDb.query.retirements.findFirst({
       where: eq(retirements.id, body.id),
@@ -239,6 +252,9 @@ describe('POST /retirements', () => {
       txHash:
         '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
       certificateUrl: null,
+      klimaAuthValueMicros: authValueMicros,
+      klimaAuthValueCents: 1002,
+      klimaRetireTotalMicros: '10000000',
     })
 
     const [balance] = await testDb
@@ -297,6 +313,9 @@ describe('POST /retirements', () => {
       status: 'released',
       certificateUrl: null,
       txHash: null,
+      klimaAuthValueMicros: null,
+      klimaAuthValueCents: null,
+      klimaRetireTotalMicros: null,
     })
 
     const [balance] = await testDb

@@ -144,17 +144,20 @@ export function mockKlimaPricing(input?: {
 
 /** Stub Klima retire for `POST /retirements` (no x402 network / payer key). */
 export function mockKlimaRetire(
-  result: KlimaRetireResult | Error = {
-    status: 'settled',
-    transactionHash:
-      '0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
-    certificateUrl: 'https://carbonmark.com/retirements/test-cert',
-  },
+  result: Partial<KlimaRetireResult> | Error = {},
 ) {
   if (result instanceof Error) {
     return vi.spyOn(klima, 'retire').mockRejectedValue(result)
   }
-  return vi.spyOn(klima, 'retire').mockResolvedValue(result)
+  return vi.spyOn(klima, 'retire').mockResolvedValue({
+    status: 'settled',
+    transactionHash:
+      '0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
+    certificateUrl: 'https://carbonmark.com/retirements/test-cert',
+    authValueMicros: null,
+    retireTotalMicros: null,
+    ...result,
+  })
 }
 
 /** Stub Klima `/certificate` lookup for pending_index resolve (no x402 network). */

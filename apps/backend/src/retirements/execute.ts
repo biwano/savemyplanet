@@ -3,8 +3,17 @@ import { db } from '../db/index'
 import { quotes } from '../db/schema/quotes'
 import { retirements } from '../db/schema/retirements'
 import { AppError } from '../errors'
+import {
+  KLIMA_RETIRE_MODE_FAKE,
+  klimaRetireMode,
+} from '../klima/config'
 import { retire as klimaRetire } from '../klima/index'
 import { release, reserve } from '../ledger/index'
+import {
+  fakeAuthMicrosFromKlimaTotalCents,
+  parseKlimaTotalMicros,
+  usdcMicrosToCeilCents,
+} from '../pricing/markup'
 import { beneficiaryAddressFromUserId } from '../users/beneficiary'
 import { apiRetirementFromRow, type APIRetirement } from './api'
 import { settleRetirement } from './settle'
@@ -21,9 +30,10 @@ export type ExecuteRetirementInput = {
  * Klima success (`settled` or `pending_index`) resets evaluation quota.
  * Klima failure restores balance and leaves the evaluation quota unchanged.
  *
- * After Klima returns a tx hash, we persist it on the `submitted` row in its own
- * commit before capture/settle. If local settle then fails, on-read reconcile
- * (see `reconcileSubmittedRetirement`) can finish capture without losing the hash.
+ * After Klima returns a tx hash, we persist it (and Klima auth spend) on the
+ * `submitted` row in its own commit before capture/settle. If local settle then
+ * fails, on-read reconcile (see `reconcileSubmittedRetirement`) can finish
+ * capture without losing the hash or auth columns.
  */
 export async function executeRetirement(
   input: ExecuteRetirementInput,
@@ -35,7 +45,7 @@ export async function executeRetirement(
 
   const retirementMessage = input.retirementMessage?.trim() || undefined
 
-  const { retirementId, amountCents, carbonClass, tonnes } =
+  const { retirementId, amountCents, carbonClass, tonnes, klimaTotalCents } =
     await reserveForQuote({
       userId: input.userId,
       quoteId: input.quoteId,
@@ -73,11 +83,17 @@ export async function executeRetirement(
     throw err
   }
 
-  // Persist tx hash before capture so a settle failure leaves a recoverable row
-  // (docs/plan.md B8 reconcile follow-up).
+  const klimaSpend = resolveKlimaSpend({
+    klimaResult,
+    klimaTotalCents,
+  })
+
+  // Persist tx hash + auth spend before capture so a settle failure leaves a
+  // recoverable row (docs/plan.md B8 reconcile + F2).
   await persistSubmittedTxHash({
     retirementId,
     transactionHash: klimaResult.transactionHash,
+    ...klimaSpend,
   })
 
   // Klima may return pending_index when the tx is mined but the certificate
@@ -114,14 +130,62 @@ export async function executeRetirement(
   }
 }
 
+/** Resolve auth/spend columns for a successful Klima (or fake) retire. */
+function resolveKlimaSpend(input: {
+  klimaResult: {
+    authValueMicros: string | null
+    retireTotalMicros: string | null
+  }
+  klimaTotalCents: number
+}): {
+  klimaAuthValueMicros: string | null
+  klimaAuthValueCents: number | null
+  klimaRetireTotalMicros: string | null
+} {
+  let authMicros = input.klimaResult.authValueMicros
+  // Fake path: no prepare-auth — synthesize ceiling from quoted COGS cents.
+  if (authMicros == null && klimaRetireMode() === KLIMA_RETIRE_MODE_FAKE) {
+    authMicros = String(
+      fakeAuthMicrosFromKlimaTotalCents(input.klimaTotalCents),
+    )
+  }
+
+  if (authMicros == null) {
+    return {
+      klimaAuthValueMicros: null,
+      klimaAuthValueCents: null,
+      klimaRetireTotalMicros: input.klimaResult.retireTotalMicros,
+    }
+  }
+
+  let klimaAuthValueCents: number
+  try {
+    klimaAuthValueCents = usdcMicrosToCeilCents(parseKlimaTotalMicros(authMicros))
+  } catch {
+    throw new AppError(502, 'klima_invalid_auth_value')
+  }
+
+  return {
+    klimaAuthValueMicros: authMicros,
+    klimaAuthValueCents,
+    klimaRetireTotalMicros: input.klimaResult.retireTotalMicros,
+  }
+}
+
 async function persistSubmittedTxHash(input: {
   retirementId: string
   transactionHash: string
+  klimaAuthValueMicros: string | null
+  klimaAuthValueCents: number | null
+  klimaRetireTotalMicros: string | null
 }): Promise<void> {
   const [updated] = await db
     .update(retirements)
     .set({
       txHash: input.transactionHash,
+      klimaAuthValueMicros: input.klimaAuthValueMicros,
+      klimaAuthValueCents: input.klimaAuthValueCents,
+      klimaRetireTotalMicros: input.klimaRetireTotalMicros,
       updatedAt: new Date(),
     })
     .where(
@@ -147,6 +211,7 @@ async function reserveForQuote(input: {
   amountCents: number
   carbonClass: string
   tonnes: string
+  klimaTotalCents: number
 }> {
   return db.transaction(async (tx) => {
     const [quote] = await tx
@@ -196,6 +261,7 @@ async function reserveForQuote(input: {
       amountCents: quote.userTotalCents,
       carbonClass: quote.carbonClass,
       tonnes: String(quote.tonnes),
+      klimaTotalCents: quote.klimaTotalCents,
     }
   })
 }

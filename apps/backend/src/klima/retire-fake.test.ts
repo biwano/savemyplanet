@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { ledgerEntries } from '../db/schema/ledgerEntries'
+import { quotes } from '../db/schema/quotes'
 import { retirements } from '../db/schema/retirements'
 import { creditFundingManual } from '../ledger/index'
 import { createUserQuote } from '../quotes/create'
@@ -139,6 +140,17 @@ describe('KLIMA_RETIRE_MODE=fake', () => {
       expect(row?.status).toBe('pending_index')
       expect(row?.txHash).toMatch(/^0x[0-9a-f]{64}$/)
       expect(row?.certificateUrl).toBeNull()
+
+      // Fake convention: auth ceiling = quote.klima_total_cents * 10_000 micros.
+      const [quoteRow] = await testDb
+        .select({ klimaTotalCents: quotes.klimaTotalCents })
+        .from(quotes)
+        .where(eq(quotes.id, quote.quoteId))
+      expect(row).toMatchObject({
+        klimaAuthValueMicros: String(quoteRow.klimaTotalCents * 10_000),
+        klimaAuthValueCents: quoteRow.klimaTotalCents,
+        klimaRetireTotalMicros: null,
+      })
 
       const entries = await testDb
         .select({ type: ledgerEntries.type })

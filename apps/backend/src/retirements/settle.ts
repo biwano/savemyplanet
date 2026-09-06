@@ -18,7 +18,12 @@ export type SettleRetirementInput = {
 /**
  * Capture reserved funds, store tx/certificate, set status, reset evaluation quota.
  * Requires the row to still be `submitted` (CAS). Callers that already persisted
- * `txHash` before this (execute / reconcile) still pass it so the settle write is complete.
+ * `txHash` (and Klima auth spend) before this (execute / reconcile) still pass
+ * the hash so the settle write is complete; auth columns are left untouched.
+ *
+ * P&L: quoted COGS = quotes.klima_total_cents; authorized COGS =
+ * retirements.klima_auth_value_cents (ceiling). Contribution ≈ user_total −
+ * authorized (or quoted) − Stripe fees − OpenRouter.
  */
 export async function settleRetirement(
   input: SettleRetirementInput,

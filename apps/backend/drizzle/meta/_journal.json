@@ -71,6 +71,13 @@
       "when": 1788702481934,
       "tag": "0009_add_funding_stripe_settlement",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1788703430484,
+      "tag": "0010_add_retirement_klima_spend",
+      "breakpoints": true
     }
   ]
 }

@@ -85,6 +85,17 @@ export type KlimaRetireResult = {
   status: RetireResult['status']
   transactionHash: string
   certificateUrl: string | null
+  /**
+   * EIP-3009 / prepare-auth `authValue` (USDC micros). Null when omitted
+   * (should not happen on a real prepare-auth) or when fake mode leaves
+   * synthesis to orchestration.
+   */
+  authValueMicros: string | null
+  /**
+   * Optional firm total from `RetireResult.quote.total` when present and
+   * distinct from the auth ceiling.
+   */
+  retireTotalMicros: string | null
 }
 
 /** Carbonmark certificate lookup by tx hash (Klima `/certificate`). */
@@ -237,18 +248,39 @@ function parseQuoteResult(raw: unknown): KlimaQuoteResult {
   return result
 }
 
-function parseRetireResult(raw: RetireResult): KlimaRetireResult {
+function parseRetireResult(
+  raw: RetireResult,
+  authValueMicros: string | null,
+): KlimaRetireResult {
   if (typeof raw.transactionHash !== 'string' || !raw.transactionHash) {
     throw new AppError(502, 'klima_invalid_retire')
   }
   const certificateUrl =
     raw.retirements.find((r) => typeof r.certificateUrl === 'string')
       ?.certificateUrl ?? null
+  const retireTotalMicros =
+    isRecord(raw.quote) && typeof raw.quote.total === 'string'
+      ? parseOptionalUsdcMicros(raw.quote.total)
+      : null
   return {
     status: raw.status,
     transactionHash: raw.transactionHash,
     certificateUrl,
+    authValueMicros,
+    retireTotalMicros,
   }
+}
+
+/** USDC base-unit integer string (or non-negative integer). */
+function parseOptionalUsdcMicros(value: unknown): string | null {
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    return /^\d+$/.test(trimmed) ? trimmed : null
+  }
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 0) {
+    return String(value)
+  }
+  return null
 }
 
 /**
@@ -336,6 +368,9 @@ export async function certificate(
 /**
  * Staging-only synthetic retire (no x402, no USDC). Ledger reserve/capture still
  * runs in orchestration. Production Cloud Run refuses this mode at boot.
+ *
+ * Auth spend is not inventable here — orchestration sets a documented
+ * synthetic ceiling from the linked quote’s `klima_total_cents` on settle.
  */
 function fakeRetire(input: KlimaRetireInput): KlimaRetireResult {
   assertKlimaRetireModeSafe()
@@ -354,6 +389,9 @@ function fakeRetire(input: KlimaRetireInput): KlimaRetireResult {
     status,
     transactionHash,
     certificateUrl,
+    // Null: executeRetirement synthesizes from quote.klima_total_cents.
+    authValueMicros: null,
+    retireTotalMicros: null,
   }
   console.info('klima retire (fake):', {
     carbonClass: input.carbonClass,
@@ -380,6 +418,7 @@ export async function retire(
   const account = privateKeyToAccount(klimaPayerPrivateKey())
 
   try {
+    let authValueMicros: string | null = null
     const raw = await getClient().retire({
       amount: input.amount,
       carbonClass: input.carbonClass,
@@ -389,7 +428,17 @@ export async function retire(
         if (!isSignTypedDataParams(typedData)) {
           throw new AppError(502, 'klima_invalid_typed_data')
         }
+        // Fallback if prepare-auth omitted top-level authValue: EIP-3009
+        // message.value is the signed USDC ceiling.
+        if (authValueMicros == null) {
+          authValueMicros = parseOptionalUsdcMicros(typedData.message.value)
+        }
         return account.signTypedData(typedData)
+      },
+      onStep: (step, info) => {
+        if (step === 'sign' && authValueMicros == null) {
+          authValueMicros = parseOptionalUsdcMicros(info.authValue)
+        }
       },
       details: {
         beneficiaryAddress: input.beneficiaryAddress,
@@ -403,7 +452,13 @@ export async function retire(
       ...(input.tokenId != null ? { tokenId: input.tokenId } : {}),
     })
 
-    const result = parseRetireResult(raw)
+    const result = parseRetireResult(raw, authValueMicros)
+    if (result.authValueMicros == null) {
+      console.warn('klima retire missing authValue; spend columns will be null', {
+        carbonClass: input.carbonClass,
+        transactionHash: result.transactionHash,
+      })
+    }
     console.info('klima retire:', {
       carbonClass: input.carbonClass,
       amount: String(input.amount),
