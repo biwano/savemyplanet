@@ -218,15 +218,15 @@ Shared demo / integration environment before (and while) building mobile. Stagin
 
 - [ ] **Done when:** a Cloud Run staging service serves the full HTTP contract against Neon development + Clerk development + Stripe test; `POST /retirements` completes the ledger/state machine with **fake** Klima retire (no x402 spend); production still refuses fake mode.
 
-- [ ] Neon **development** database (or dedicated branch), not production. Migrate via a staging workflow / GitHub Environment secret (e.g. `STAGING_DATABASE_URL` — already used by CI tests; prefer the same or a sibling branch).
-- [ ] Cloud Run service distinct from production (e.g. `savemyplanet-api-staging`) in the same Europe region. Bootstrap secrets/env separately.
-- [ ] **Deploy trigger:** on **push to the `staging` git branch**, CI → migrate staging Neon → build/push image → deploy the staging Cloud Run service (same CI → migrate → deploy order as production on `main`). Document workflows in [hosting.md](hosting.md). Pushes to `main` must not update staging.
+- [x] Neon **development** database (or dedicated branch), not production. Migrate via a staging workflow / GitHub Environment secret (e.g. `STAGING_DATABASE_URL` — already used by CI tests; prefer the same or a sibling branch).
+- [x] Cloud Run service distinct from production (e.g. `savemyplanet-api-staging`) in the same Europe region. Bootstrap secrets/env separately.
+- [x] **Deploy trigger:** on **push to the `staging` git branch**, CI → migrate staging Neon → build/push image → deploy the staging Cloud Run service (same CI → migrate → deploy order as production on `main`). Document workflows in [hosting.md](hosting.md). Pushes to `main` must not update staging.
 - [ ] **Clerk development** application (or Clerk “development” instance keys). Webhook endpoint points at the staging `*.run.app` URL.
 - [ ] **Stripe test** mode keys + test webhook secret; Checkout/PaymentIntent + funding webhook credit USD cents the same as production.
-- [ ] **Fake retirements:** env-gated Klima retire stub (e.g. `KLIMA_RETIRE_MODE=fake` or equivalent). Staging: `retire()` returns a synthetic settled (or pending_index) result with fake tx hash / certificate URL; ledger reserve → capture (or release on forced failure) still runs for real. Unset / non-fake: real x402 only. **Boot must fail** if fake mode is enabled on the production Cloud Run service (hard guard — do not rely on “just don’t set the flag”).
-- [ ] Discover/quote use live Klima **reads** (no spend). Fake mode applies only to **retire**.
-- [ ] `CORS_ORIGINS` allowlist includes the Expo web staging origin (S2). No `*`.
-- [ ] Record the staging base URL for the Expo app (`EXPO_PUBLIC_API_URL`).
+- [x] **Fake retirements:** env-gated Klima retire stub (e.g. `KLIMA_RETIRE_MODE=fake` or equivalent). Staging: `retire()` returns a synthetic settled (or pending_index) result with fake tx hash / certificate URL; ledger reserve → capture (or release on forced failure) still runs for real. Unset / non-fake: real x402 only. **Boot must fail** if fake mode is enabled on the production Cloud Run service (hard guard — do not rely on “just don’t set the flag”).
+- [x] Discover/quote use live Klima **reads** (no spend). Fake mode applies only to **retire**.
+- [x] `CORS_ORIGINS` allowlist includes the Expo web staging origin (S2). No `*`.
+- [x] Record the staging base URL for the Expo app (`EXPO_PUBLIC_API_URL`).
 
 ### S2. Expo web → staging API
 

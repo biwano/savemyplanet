@@ -1,0 +1,47 @@
+name: Migrate staging database
+
+# Run only after CI succeeds on staging (push), not in parallel with tests.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [staging]
+
+concurrency:
+  group: migrate-staging
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    name: Migrate
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: staging
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.7.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Migrate
+        working-directory: apps/backend
+        run: pnpm db:migrate
+        env:
+          # Prefer a direct (non-pooler) Neon URL for drizzle-kit migrate.
+          # Same Neon development DB / branch as CI (`STAGING_DATABASE_URL`).
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}

@@ -1,12 +1,17 @@
+import { randomBytes } from 'node:crypto'
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts'
 import { createTtlCache } from '../cache/ttl'
 import { AppError } from '../errors'
 import {
+  assertKlimaRetireModeSafe,
   DEFAULT_KLIMA_TIMEOUT_MS,
   discoverCacheTtlMs,
   klimaBaseUrl,
   klimaChainId,
+  klimaFakeRetireStatus,
   klimaPayerPrivateKey,
+  klimaRetireMode,
+  KLIMA_RETIRE_MODE_FAKE,
 } from './config'
 import { mapKlimaError } from './errors'
 import {
@@ -329,12 +334,49 @@ export async function certificate(
 }
 
 /**
+ * Staging-only synthetic retire (no x402, no USDC). Ledger reserve/capture still
+ * runs in orchestration. Production Cloud Run refuses this mode at boot.
+ */
+function fakeRetire(input: KlimaRetireInput): KlimaRetireResult {
+  assertKlimaRetireModeSafe()
+  const status = klimaFakeRetireStatus()
+  if (status === 'fail') {
+    throw new AppError(502, 'klima_fake_retire_failed')
+  }
+
+  const transactionHash = `0x${randomBytes(32).toString('hex')}`
+  const certificateUrl =
+    status === 'settled'
+      ? `https://carbonmark.com/retirements/fake/${transactionHash}`
+      : null
+
+  const result: KlimaRetireResult = {
+    status,
+    transactionHash,
+    certificateUrl,
+  }
+  console.info('klima retire (fake):', {
+    carbonClass: input.carbonClass,
+    amount: String(input.amount),
+    status: result.status,
+    transactionHash: result.transactionHash,
+    chainId: klimaChainId(),
+  })
+  return result
+}
+
+/**
  * Sign + relay retirement from the service wallet (`KLIMA_PAYER_PRIVATE_KEY`).
  * Sets Klima `details.beneficiaryAddress` from the caller (UUID-derived for users).
+ * When `KLIMA_RETIRE_MODE=fake`, returns a synthetic result (staging only).
  */
 export async function retire(
   input: KlimaRetireInput,
 ): Promise<KlimaRetireResult> {
+  if (klimaRetireMode() === KLIMA_RETIRE_MODE_FAKE) {
+    return fakeRetire(input)
+  }
+
   const account = privateKeyToAccount(klimaPayerPrivateKey())
 
   try {

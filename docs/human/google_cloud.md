@@ -4,9 +4,11 @@ Human walkthrough of how the ClearMyCarbon API gets onto Cloud Run, and how GitH
 
 | Workflow | File |
 | --- | --- |
-| Tests | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) |
+| Tests | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) (`main` + `staging`) |
 | Production DB migrate | [`.github/workflows/migrate-production.yml`](../../.github/workflows/migrate-production.yml) |
-| Build + Cloud Run deploy | [`.github/workflows/deploy-backend.yml`](../../.github/workflows/deploy-backend.yml) |
+| Production build + Cloud Run deploy | [`.github/workflows/deploy-backend.yml`](../../.github/workflows/deploy-backend.yml) |
+| Staging DB migrate | [`.github/workflows/migrate-staging.yml`](../../.github/workflows/migrate-staging.yml) |
+| Staging build + Cloud Run deploy | [`.github/workflows/deploy-backend-staging.yml`](../../.github/workflows/deploy-backend-staging.yml) |
 
 ---
 

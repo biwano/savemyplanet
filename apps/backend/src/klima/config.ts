@@ -15,10 +15,79 @@ export const DEFAULT_DISCOVER_CACHE_TTL_MS = 60_000
 /** Per-request HTTP timeout for Klima client (Cloud Run ≥ Klima wait). */
 export const DEFAULT_KLIMA_TIMEOUT_MS = 60_000
 
+/**
+ * Production Cloud Run service name (`K_SERVICE`). Fake retire must never run here.
+ * Staging service is `savemyplanet-api-staging`.
+ */
+export const PRODUCTION_CLOUD_RUN_SERVICE = 'savemyplanet-api'
+
+export const KLIMA_RETIRE_MODE_REAL = 'real' as const
+export const KLIMA_RETIRE_MODE_FAKE = 'fake' as const
+
+export type KlimaRetireMode =
+  | typeof KLIMA_RETIRE_MODE_REAL
+  | typeof KLIMA_RETIRE_MODE_FAKE
+
+/** Synthetic status for `KLIMA_RETIRE_MODE=fake` (default pending_index). */
+export type KlimaFakeRetireStatus = 'settled' | 'pending_index' | 'fail'
+
 /** Endpoint origin (no trailing `/api`). Defaults to production x402. */
 export function klimaBaseUrl(): string {
   const value = process.env.KLIMA_BASE_URL?.trim()
   return (value || DEFAULT_KLIMA_BASE_URL).replace(/\/+$/, '')
+}
+
+/**
+ * Retire path mode. Unset / `real` → live x402. `fake` → synthetic result (no USDC).
+ * Discover/quote always hit live Klima regardless of this flag.
+ */
+export function klimaRetireMode(): KlimaRetireMode {
+  const raw = process.env.KLIMA_RETIRE_MODE?.trim().toLowerCase()
+  if (!raw || raw === KLIMA_RETIRE_MODE_REAL) {
+    return KLIMA_RETIRE_MODE_REAL
+  }
+  if (raw === KLIMA_RETIRE_MODE_FAKE) {
+    return KLIMA_RETIRE_MODE_FAKE
+  }
+  throw new Error(
+    `KLIMA_RETIRE_MODE must be "${KLIMA_RETIRE_MODE_REAL}" or "${KLIMA_RETIRE_MODE_FAKE}"`,
+  )
+}
+
+/**
+ * Hard guard: refuse to start (or retire) with fake mode on the production
+ * Cloud Run service. Do not rely on “just don’t set the flag” on prod.
+ */
+export function assertKlimaRetireModeSafe(): void {
+  if (klimaRetireMode() !== KLIMA_RETIRE_MODE_FAKE) {
+    return
+  }
+  const service = process.env.K_SERVICE?.trim()
+  if (service === PRODUCTION_CLOUD_RUN_SERVICE) {
+    throw new Error(
+      `KLIMA_RETIRE_MODE=fake is forbidden on Cloud Run service ${PRODUCTION_CLOUD_RUN_SERVICE}`,
+    )
+  }
+}
+
+/**
+ * Optional override for fake retire outcomes (staging demos / failure drills).
+ * Default: pending_index (tx hash, no certificate yet).
+ */
+export function klimaFakeRetireStatus(): KlimaFakeRetireStatus {
+  const raw = process.env.KLIMA_FAKE_RETIRE_STATUS?.trim().toLowerCase()
+  if (!raw || raw === 'pending_index') {
+    return 'pending_index'
+  }
+  if (raw === 'settled') {
+    return 'settled'
+  }
+  if (raw === 'fail') {
+    return 'fail'
+  }
+  throw new Error(
+    'KLIMA_FAKE_RETIRE_STATUS must be "settled", "pending_index", or "fail"',
+  )
 }
 
 /**

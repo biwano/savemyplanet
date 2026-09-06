@@ -1,0 +1,92 @@
+name: Deploy backend staging
+
+# Build + push the backend image, then roll staging Cloud Run to that tag.
+# Runs after migrate-staging succeeds so schema changes land before the new image.
+# (migrate-staging itself only runs after CI succeeds on a push to staging.)
+on:
+  workflow_run:
+    workflows: [Migrate staging database]
+    types: [completed]
+    branches: [staging]
+
+concurrency:
+  group: deploy-backend-staging
+  cancel-in-progress: false
+
+env:
+  GCP_PROJECT_ID: green-jet-454713-i7
+  GCP_REGION: europe-west1
+  GCP_ARTIFACT_REPOSITORY: savemyplanet
+  GCP_CLOUD_RUN_SERVICE: savemyplanet-api-staging
+  # Distinct tags from production (`backend:latest` / `backend:<sha>`).
+  GCP_IMAGE_TAG_PREFIX: staging
+  # Create pool/provider with these ids (see docs/hosting.md). Uses project number.
+  GCP_WORKLOAD_IDENTITY_PROVIDER: projects/7566378171/locations/global/workloadIdentityPools/github/providers/github-actions
+  GCP_SERVICE_ACCOUNT: github-deploy@green-jet-454713-i7.iam.gserviceaccount.com
+
+jobs:
+  deploy:
+    name: Build and deploy staging
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: staging
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Set image coordinates
+        id: image
+        env:
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          registry="${GCP_REGION}-docker.pkg.dev"
+          image="${registry}/${GCP_PROJECT_ID}/${GCP_ARTIFACT_REPOSITORY}/backend"
+          {
+            echo "registry=${registry}"
+            echo "tag_sha=${image}:${GCP_IMAGE_TAG_PREFIX}-${SHA}"
+            echo "tag_latest=${image}:${GCP_IMAGE_TAG_PREFIX}-latest"
+            # workflow_run cannot write default-branch GHA cache; use Artifact Registry.
+            echo "cache_ref=${image}:buildcache"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker "${{ steps.image.outputs.registry }}" --quiet
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: apps/backend/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.image.outputs.tag_sha }}
+            ${{ steps.image.outputs.tag_latest }}
+          cache-from: type=registry,ref=${{ steps.image.outputs.cache_ref }}
+          cache-to: type=registry,ref=${{ steps.image.outputs.cache_ref }},mode=max
+
+      - name: Deploy to Cloud Run
+        run: |
+          # Updates the image only; keep existing env, secrets, timeout, and ingress.
+          gcloud run deploy "${GCP_CLOUD_RUN_SERVICE}" \
+            --image "${{ steps.image.outputs.tag_sha }}" \
+            --region "${GCP_REGION}" \
+            --platform managed \
+            --quiet
