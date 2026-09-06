@@ -13,5 +13,7 @@ FROM base AS runtime
 ENV NODE_ENV=production
 COPY --from=build /usr/src/app /usr/src/app
 WORKDIR /usr/src/app/apps/backend
-EXPOSE 3000
-CMD [ "pnpm", "start" ]
+# Cloud Run sets PORT (default 8080); index.ts reads process.env.PORT.
+EXPOSE 8080
+# Bypass pnpm/corepack so cold starts do not hit the registry.
+CMD [ "node", "dist/index.js" ]

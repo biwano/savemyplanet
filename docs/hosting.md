@@ -33,9 +33,47 @@ Without this secret, GitHub injects an empty `DATABASE_URL` and tests would othe
 
 ## Production DB migrations
 
-After **CI succeeds** on a **push** to `main`, [`.github/workflows/migrate-production.yml`](../.github/workflows/migrate-production.yml) runs `pnpm db:migrate` when the commit touches `apps/backend/drizzle/**`, `apps/backend/src/db/schema/**`, or `apps/backend/drizzle.config.ts`.
+After **CI succeeds** on a **push** to `main`, [`.github/workflows/migrate-production.yml`](../.github/workflows/migrate-production.yml) runs `pnpm db:migrate`.
 
 Configure a GitHub Environment named **`production`** with secret **`PRODUCTION_DATABASE_URL`**. Prefer a **direct** (non-pooler) Neon connection string for drizzle-kit migrate.
+
+## Production image build + Cloud Run deploy
+
+Do **not** run `gcloud builds submit` by hand. After **migrate-production succeeds** (which itself runs only after CI on a **push** to `main`), [`.github/workflows/deploy-backend.yml`](../.github/workflows/deploy-backend.yml):
+
+1. Builds `apps/backend/Dockerfile` on the runner (repo root context)
+2. Pushes to Artifact Registry as `backend:<git-sha>` and `backend:latest`
+3. Deploys that digest to Cloud Run (**image only** — keeps existing env, secrets, timeout, ingress)
+
+Order is intentional: **CI → migrate → deploy**, so schema changes apply before the new revision serves traffic.
+
+### One-time GCP setup
+
+Coordinates are **hardcoded** in [`.github/workflows/deploy-backend.yml`](../.github/workflows/deploy-backend.yml) (`green-jet-454713-i7`, `europe-west1`, repo `savemyplanet`, service `savemyplanet-api`). No GitHub variables for those.
+
+1. Enable APIs: `run`, `artifactregistry`, `iamcredentials`, `sts`.
+2. Artifact Registry docker repo `savemyplanet` in `europe-west1` (already created).
+3. Create deploy SA `github-deploy@green-jet-454713-i7.iam.gserviceaccount.com` with `roles/artifactregistry.writer`, `roles/run.admin`, and `roles/iam.serviceAccountUser` on the Cloud Run runtime SA.
+4. Create [Workload Identity Federation](https://github.com/google-github-actions/auth#workload-identity-federation-through-a-service-account) so GitHub Actions can impersonate that SA:
+   - Pool id: `github`
+   - Provider id: `github-actions`
+   - Attribute condition / principal set limited to this repo (and preferably the `production` environment)
+   - Provider resource name must match the workflow: `projects/7566378171/locations/global/workloadIdentityPools/github/providers/github-actions`
+5. GitHub Environment **`production`** still needs secret **`PRODUCTION_DATABASE_URL`** (migrate workflow only).
+6. **Bootstrap** the Cloud Run service `savemyplanet-api` once (secrets, `--timeout=60`, `--allow-unauthenticated`, `CORS_ORIGINS`, etc.). After that, the Action only rolls the container image.
+   - Production **must not** use `CORS_ORIGINS=*` — the process exits on boot (local-dev only). Use a comma-separated HTTPS/HTTP allowlist (e.g. Expo web / future marketing origin). Native Expo clients do not rely on CORS; the allowlist is for browser callers.
+   - Example bootstrap (adjust origins as needed):
+
+```bash
+gcloud run deploy savemyplanet-api \
+  --region=europe-west1 \
+  --image=europe-west1-docker.pkg.dev/green-jet-454713-i7/savemyplanet/backend:latest \
+  --platform=managed \
+  --allow-unauthenticated \
+  --timeout=60 \
+  --set-secrets=DATABASE_URL=DATABASE_URL:latest,CLERK_PUBLISHABLE_KEY=CLERK_PUBLISHABLE_KEY:latest,CLERK_SECRET_KEY=CLERK_SECRET_KEY:latest,STRIPE_SECRET_KEY=STRIPE_SECRET_KEY:latest,KLIMA_PAYER_PRIVATE_KEY=KLIMA_PAYER_PRIVATE_KEY:latest,OPENROUTER_API_KEY=OPENROUTER_API_KEY:latest,CLERK_WEBHOOK_SIGNING_SECRET=CLERK_WEBHOOK_SIGNING_SECRET:latest,STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest,ADMIN_API_KEY=ADMIN_API_KEY:latest \
+  --set-env-vars=NODE_ENV=production,CORS_ORIGINS=https://savemyplanet.ilponse.com
+```
 
 ## Constraints
 
