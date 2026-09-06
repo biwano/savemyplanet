@@ -5,7 +5,11 @@ import { users } from '../db/schema/users'
 import { AppError } from '../errors'
 import { formatTonnesDecimal, MIN_TONNES } from '../pricing/tonnes'
 import { apiEvaluationFromRow, type APIEvaluation } from './api'
-import { callLlm, type LlmEvaluation } from './llm'
+import {
+  callLlm,
+  formatOpenRouterCostUsd,
+  type LlmEvaluation,
+} from './llm'
 
 export type EvaluateActivityInput = {
   userId: string
@@ -33,6 +37,7 @@ export async function evaluateActivity(
 
   const estimate = await resolveEstimate(activity)
   const tonnesFormatted = normalizeSuggestedTonnes(estimate.suggestedTonnes)
+  const usage = estimate.usage
 
   return db.transaction(async (tx) => {
     const [decremented] = await tx
@@ -56,6 +61,14 @@ export async function evaluateActivity(
         activityText: activity,
         suggestedTonnes: tonnesFormatted,
         rationale: estimate.rationale,
+        openrouterCostUsd:
+          usage?.costUsd != null
+            ? formatOpenRouterCostUsd(usage.costUsd)
+            : null,
+        openrouterModel: usage?.model ?? null,
+        promptTokens: usage?.promptTokens ?? null,
+        completionTokens: usage?.completionTokens ?? null,
+        totalTokens: usage?.totalTokens ?? null,
       })
       .returning()
 
@@ -70,6 +83,7 @@ export async function evaluateActivity(
 async function resolveEstimate(activity: string): Promise<{
   suggestedTonnes: number
   rationale: string
+  usage?: LlmEvaluation['usage']
 }> {
   let llm: LlmEvaluation | null
   try {
@@ -92,6 +106,7 @@ async function resolveEstimate(activity: string): Promise<{
   return {
     suggestedTonnes: llm.suggestedTonnes,
     rationale: llm.rationale,
+    usage: llm.usage,
   }
 }
 

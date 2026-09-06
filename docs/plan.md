@@ -74,7 +74,7 @@ Neon Postgres + Drizzle. Schema (minimum):
 | `ledger_entries` | immutable credits/debits: funding, reserve, capture, release; includes `retirement_id` |
 | `quotes` | snapshot of user-facing price (tonnes, markup_bps, user_total, klima_total stored **server-only**, expiry) |
 | `retirements` | state machine + certificate URL, tx hash, tonnes, attribution |
-| `evaluations` | optional audit of activity text → suggested tonnes |
+| `evaluations` | optional audit of activity text → suggested tonnes; **B7c** adds OpenRouter cost / usage |
 
 `beneficiaryAddress` is **not** a stored column: derive it deterministically from `users.id` (UUID → checksummed EVM address) in B7b. Same UUID always yields the same address.
 
@@ -148,6 +148,15 @@ Product rules: [product.md](product.md) (quota + default beneficiary).
 - [x] Failed / ambiguous LLM responses do **not** consume quota.
 - [x] Tests: quota gate, decrement on success, no decrement on LLM failure, `/me` fields.
 
+### B7c. Persist OpenRouter evaluation costs
+
+- [x] **Done when:** each successful `evaluations` row stores the OpenRouter call’s cost (USD) so we can sum spend per evaluation / over time; failed or ambiguous calls that do not insert a row do not invent cost rows. Cost fields stay **server-only** (not on the frozen `POST /evaluations` response).
+
+- [x] Migration: add nullable cost/usage columns on `evaluations` (named, e.g. `--name add_evaluation_openrouter_cost`). Prefer storing OpenRouter’s reported cost when present, plus model id and token counts when returned (`prompt` / `completion` / `total`).
+- [x] `callOpenRouter` / `callLlm`: parse `usage` (and cost if OpenRouter includes it) from the chat-completions response; do not drop it when reading `choices[].message.content`.
+- [x] On successful evaluate persist: write cost/usage onto the new `evaluations` row in the same transaction as the audit insert + quota decrement.
+- [x] Tests: mocked OpenRouter response with usage/cost → DB re-read shows stored values; missing usage still allows a successful evaluation (cost columns null).
+
 ### B8. Retire (orchestration)
 
 - [x] **Done when:** (testnet or tiny mainnet amount) funded user retires; balance drops by **user_total**; certificate URL stored; a forced Klima failure refunds the reserve; settled success resets evaluations to 10.
@@ -193,10 +202,10 @@ Timeouts: Cloud Run request timeout ≥ Klima wait (start at 60s, raise if neede
 
 - [ ] **Done when:** register → credit (admin) → quote → retire works against the deployed API with a funded service wallet. Record the public base URL for mobile.
 
-- [ ] Neon project in AWS `eu-central-1` (Frankfurt) + migrate. Production migrate: GitHub Action after CI on `main`; Environment `production`, secret `PRODUCTION_DATABASE_URL` (direct Neon URL). See [hosting.md](hosting.md).
-- [ ] Cloud Run in `europe-west1` (Belgium) or `europe-west9` (Paris): image from `apps/backend/Dockerfile` via GitHub Action (build/push Artifact Registry + deploy after migrate on `main`); secrets (`DATABASE_URL`, `CLERK_SECRET_KEY`, `STRIPE_SECRET_KEY`, `KLIMA_PAYER_PRIVATE_KEY`). See [hosting.md](hosting.md).
-- [ ] Outbound HTTPS to `x402.klimalabs.com` and OpenRouter allowed.
-- [ ] `GET /health` on the `*.run.app` URL.
+- [x] Neon project in AWS `eu-central-1` (Frankfurt) + migrate. Production migrate: GitHub Action after CI on `main`; Environment `production`, secret `PRODUCTION_DATABASE_URL` (direct Neon URL). See [hosting.md](hosting.md).
+- [x] Cloud Run in `europe-west1` (Belgium) or `europe-west9` (Paris): image from `apps/backend/Dockerfile` via GitHub Action (build/push Artifact Registry + deploy after migrate on `main`); secrets (`DATABASE_URL`, `CLERK_SECRET_KEY`, `STRIPE_SECRET_KEY`, `KLIMA_PAYER_PRIVATE_KEY`). See [hosting.md](hosting.md).
+- [x] Outbound HTTPS to `x402.klimalabs.com` and OpenRouter allowed.
+- [x] `GET /health` on the `*.run.app` URL.
 
 ---
 
@@ -360,6 +369,7 @@ Does **not** block B8–B10 or API freeze. Goal: rate-limit **every** HTTP route
 - [x] B5–B6 Klima reads + marked-up quotes
 - [x] B7 evaluations
 - [x] B7b evaluation quota + derived beneficiaryAddress
+- [x] B7c persist OpenRouter evaluation costs (parallel OK; does not block API freeze)
 - [x] B8–B9 retire + history (reset quota on settle)
 - [ ] B10 Cloud Run + Neon + secrets
 - [ ] *Freeze API table*

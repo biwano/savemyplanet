@@ -57,6 +57,13 @@
       "when": 1788633502900,
       "tag": "0007_retirements_quote_id_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788698118857,
+      "tag": "0008_add_evaluation_openrouter_cost",
+      "breakpoints": true
     }
   ]
 }
