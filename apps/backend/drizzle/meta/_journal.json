@@ -64,6 +64,13 @@
       "when": 1788698118857,
       "tag": "0008_add_evaluation_openrouter_cost",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788702481934,
+      "tag": "0009_add_funding_stripe_settlement",
+      "breakpoints": true
     }
   ]
 }

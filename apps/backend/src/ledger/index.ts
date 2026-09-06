@@ -11,11 +11,18 @@ export type LedgerTx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
 export type CreditFundingInput = {
   userId: string
-  /** USD cents credited to available. */
+  /** USD cents credited to available (gross presentment; fees are audit-only). */
   amountCents: number
   presentmentAmountCents?: number
   presentmentCurrency?: PresentmentCurrency
   stripePaymentIntentId?: string
+  /** Settlement fee (USD cents when platform settles in USD); Stripe funding only. */
+  stripeFeeCents?: number
+  /** Net after fees in settlement currency; Stripe funding only. */
+  stripeNetCents?: number
+  /** FX rate when presentment ≠ settlement; null/omit for pure USD. */
+  stripeExchangeRate?: string | null
+  stripeBalanceTransactionId?: string
 }
 
 export type CreditFundingResult = {
@@ -37,6 +44,10 @@ export async function creditFunding(
     presentmentAmountCents,
     presentmentCurrency,
     stripePaymentIntentId,
+    stripeFeeCents,
+    stripeNetCents,
+    stripeExchangeRate,
+    stripeBalanceTransactionId,
   } = input
 
   if (!Number.isInteger(amountCents) || amountCents <= 0) {
@@ -53,6 +64,10 @@ export async function creditFunding(
         presentmentAmountCents,
         presentmentCurrency,
         stripePaymentIntentId,
+        stripeFeeCents,
+        stripeNetCents,
+        stripeExchangeRate,
+        stripeBalanceTransactionId,
       })
       .onConflictDoNothing({
         target: ledgerEntries.stripePaymentIntentId,

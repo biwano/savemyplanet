@@ -1,4 +1,11 @@
-import { pgTable, text, timestamp, integer, uuid } from 'drizzle-orm/pg-core'
+import {
+  integer,
+  numeric,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from 'drizzle-orm/pg-core'
 import { users } from './users'
 import { retirements } from './retirements'
 
@@ -19,5 +26,19 @@ export const ledgerEntries = pgTable('ledger_entries', {
   presentmentCurrency: text('presentment_currency'),
   /** Stripe PaymentIntent id for idempotent funding credits. */
   stripePaymentIntentId: text('stripe_payment_intent_id').unique(),
+  /**
+   * Stripe processing fee in settlement currency minor units (funding + PI only).
+   * Audit/P&L only — not deducted from `amount_cents` / available balance.
+   */
+  stripeFeeCents: integer('stripe_fee_cents'),
+  /** Net after fees in settlement currency minor units (funding + PI only). */
+  stripeNetCents: integer('stripe_net_cents'),
+  /**
+   * Stripe `balance_transaction.exchange_rate` when presentment ≠ settlement.
+   * Null for pure USD presentment (and for manual credits).
+   */
+  stripeExchangeRate: numeric('stripe_exchange_rate'),
+  /** Stripe balance transaction id for Dashboard join (funding + PI only). */
+  stripeBalanceTransactionId: text('stripe_balance_transaction_id'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })

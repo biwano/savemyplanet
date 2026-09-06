@@ -31,14 +31,47 @@ export function mockCreateDepositPaymentIntent(result?: {
 
 /**
  * Stub `getStripe().webhooks.constructEvent` for Stripe webhook route tests.
+ * Optionally stubs `charges.retrieve` with an expanded balance_transaction
+ * (required for funding credits that persist fee/net/FX).
  */
-export function mockStripeConstructEvent(event: {
-  type: string
-  data: { object: unknown }
-}): void {
+export function mockStripeConstructEvent(
+  event: {
+    type: string
+    data: { object: unknown }
+  },
+  options?: {
+    balanceTransaction?: {
+      id: string
+      fee: number
+      net: number
+      currency?: string
+      exchange_rate?: number | null
+    }
+  },
+): void {
   const constructEvent = vi.fn().mockReturnValue(event)
+
+  const retrieve = vi.fn().mockImplementation(async (id: string) => {
+    const bt = options?.balanceTransaction
+    if (!bt) {
+      throw new Error(`unexpected charges.retrieve(${id})`)
+    }
+    return {
+      id,
+      balance_transaction: {
+        id: bt.id,
+        object: 'balance_transaction',
+        fee: bt.fee,
+        net: bt.net,
+        currency: bt.currency ?? 'usd',
+        exchange_rate: bt.exchange_rate ?? null,
+      },
+    }
+  })
+
   const stripe = {
     webhooks: { constructEvent },
+    charges: { retrieve },
   } as unknown as Stripe
   vi.spyOn(stripeClient, 'getStripe').mockReturnValue(stripe)
 }

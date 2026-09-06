@@ -72,9 +72,9 @@ Neon Postgres + Drizzle. Schema (minimum):
 | Table | Purpose |
 | --- | --- |
 | `users` | id, clerk_id (unique), email, available_cents, reserved_cents (integer USD cents), created_at; **B7b** adds `evaluations_remaining` (default 10) |
-| `ledger_entries` | immutable credits/debits: funding, reserve, capture, release; includes `retirement_id` |
+| `ledger_entries` | immutable credits/debits: funding, reserve, capture, release; includes `retirement_id`; **F1** adds Stripe fee/net/FX on funding rows |
 | `quotes` | snapshot of user-facing price (tonnes, markup_bps, user_total, klima_total stored **server-only**, expiry) |
-| `retirements` | state machine + certificate URL, tx hash, tonnes, attribution |
+| `retirements` | state machine + certificate URL, tx hash, tonnes, attribution; **F2** adds Klima auth/spend (server-only) |
 | `evaluations` | optional audit of activity text → suggested tonnes; **B7c** adds OpenRouter cost / usage |
 
 `beneficiaryAddress` is **not** a stored column: derive it deterministically from `users.id` (UUID → checksummed EVM address) in B7b. Same UUID always yields the same address.
@@ -396,6 +396,48 @@ Does **not** block B8–B10 or API freeze. Goal: rate-limit **every** HTTP route
 - [x] Handler / status: HTTP `429`, body `{ error: string, details?: unknown }` consistent with other structured errors.
 - [x] Tests: under limit → success path unchanged; over limit → 429; other keys unaffected.
 
+## Side plan — Financial cost persistence (audit gaps)
+
+Does **not** block B10, Phase S, API freeze, or mobile. Goal: close the **high** and **medium** gaps from the financial audit so Postgres can support contribution margin without Stripe Dashboard / chain archaeology. Fields stay **server-only** (never on the frozen user API). Product rule unchanged: deposits still credit **gross**; fees are recorded for P&L, not deducted from `available_cents` ([product.md](product.md)).
+
+Gaps closed here:
+
+| Severity | Gap | Closed by |
+| --- | --- | --- |
+| High | Stripe processing fees not in DB | F1 |
+| Medium | EUR FX rate not auditable | F1 |
+| Medium | Quoted Klima ≠ proven USDC spend | F2 |
+
+Low gaps (naive `SUM(quotes)`, manual admin credits) stay out of this side plan.
+
+### F1. Persist Stripe fee + FX on funding
+
+- [x] **Done when:** every successful Stripe-funded `ledger_entries` row (`type = funding` with a PaymentIntent) stores settlement fee, net, and (when non-USD) the FX rate used for the gross USD credit; USD deposits also expand `balance_transaction` (not EUR-only); manual `POST /account/credit` rows leave fee/FX columns null; user HTTP responses unchanged.
+
+- [x] Migration (named, e.g. `--name add_funding_stripe_settlement`): on `ledger_entries`, nullable columns for funding rows only, e.g.:
+  - `stripe_fee_cents` (integer) — fee in **settlement** currency minor units (USD cents when platform settles in USD)
+  - `stripe_net_cents` (integer) — net after fees in settlement currency
+  - `stripe_exchange_rate` (numeric, nullable) — Stripe `balance_transaction.exchange_rate` when presentment ≠ settlement; null for pure USD
+  - Optional: `stripe_balance_transaction_id` (text) for Stripe Dashboard join
+- [x] `usdCentsFromPaymentIntent` / `creditFromPaymentIntent`: for **both** USD and EUR, retrieve the charge with `expand: ['balance_transaction']`. Keep gross credit math as today (presentment × rate for EUR; presentment for USD). Additionally persist `fee`, `net`, and `exchange_rate` from the balance transaction onto the funding insert. Refuse/fail closed if fee/net missing on a real Stripe funding path (same class of errors as missing charge today).
+- [x] Do **not** change credit amount: still gross → `amount_cents` / `available_cents`. Fee columns are audit-only.
+- [x] `creditFundingManual` / admin credit: omit Stripe settlement columns (null).
+- [x] Tests: mocked PaymentIntent + balance_transaction (USD fee/net; EUR fee/net + exchange_rate) → DB re-read shows columns; idempotent webhook replay does not invent a second row; admin credit still works with nulls. No fee fields on deposit/account JSON.
+
+### F2. Persist actual Klima USDC authorization on retire
+
+- [ ] **Done when:** each retirement that reaches Klima success (`settled` or `pending_index`) stores the USDC authorization ceiling used at retire time (and, when available, any post-retire quote/total from the Klima result) so COGS can use **actual auth** vs `quotes.klima_total_cents`; released / failed retires do not invent spend rows; fake mode either stores a documented synthetic value or null consistently; user HTTP responses unchanged (no wholesale).
+
+- [ ] Migration (named, e.g. `--name add_retirement_klima_spend`): on `retirements`, nullable server-only columns, e.g.:
+  - `klima_auth_value_micros` (numeric/text integer string) — EIP-3009 / prepare-auth `authValue` (USDC 6-decimal base units), the signed ceiling
+  - `klima_auth_value_cents` (integer) — ceil to cents for easy SUM (same rounding spirit as quotes)
+  - Optional: `klima_retire_total_micros` if `RetireResult.quote` (or equivalent) exposes a firm total distinct from auth ceiling
+  - Optional: `klima_quoted_total_cents` denormalized copy of the quote’s `klima_total_cents` at settle time (snapshot join-safety if quotes were ever mutated — quotes are immutable today; skip if redundant)
+- [ ] Klima client: capture `authValue` from `prepare-auth` (vendor `onStep('sign', …)` and/or typed prepare response). Prefer integer micros over formatted strings. Thread through `KlimaRetireResult` (real path). Fake path: set auth fields to match the linked quote’s `klima_total` micros **or** leave null — pick one, document in code comment, test it.
+- [ ] Orchestration (`executeRetirement` / `settleRetirement`): on successful capture, write auth (and optional retire-total) columns in the same transaction as status → `settled` / `pending_index`. On release/failure: leave spend columns null.
+- [ ] P&L convention (document in a short comment near schema or settle): **quoted COGS** = `quotes.klima_total_cents`; **authorized COGS** = `retirements.klima_auth_value_cents` (ceiling; unused budget may refund on-chain — note that true post-refund spend may still need chain/indexer later). Contribution margin ≈ `user_total` − authorized (or quoted) − Stripe fees − OpenRouter.
+- [ ] Tests: mocked real retire with known `authValue` → DB re-read; fake retire behavior matches chosen convention; failure → release with null spend columns; `GET /retirements/:id` still has no wholesale fields.
+
 ## Order of work (checklist)
 
 - [x] 0. Phase 0 monorepo + backend health
@@ -414,3 +456,5 @@ Does **not** block B8–B10 or API freeze. Goal: rate-limit **every** HTTP route
 - [ ] M6 EAS preview (staging API + web)
 - [x] *Side:* T0–T1 endpoint test catch-up (parallel OK) — T0–T1 done
 - [x] *Side:* N1 network throttling (parallel OK)
+- [x] *Side:* F1 Stripe fee + FX on funding (parallel OK; does not block API freeze)
+- [ ] *Side:* F2 Klima auth/spend on retire (parallel OK; after or with F1)

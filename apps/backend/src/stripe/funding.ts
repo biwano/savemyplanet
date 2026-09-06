@@ -56,17 +56,27 @@ export async function createDepositPaymentIntent(
   }
 }
 
-/**
- * Convert presentment amount to USD cents using Stripe's balance transaction
- * exchange rate when the charge is not already in USD.
- */
-export async function usdCentsFromPaymentIntent(
-  pi: Stripe.PaymentIntent,
-): Promise<{
+export type PaymentIntentUsdCredit = {
   creditedCents: number
   presentmentAmountCents: number
   presentmentCurrency: PresentmentCurrency
-}> {
+  /** Settlement fee in USD cents (platform settles in USD). */
+  stripeFeeCents: number
+  /** Net after fees in USD cents. */
+  stripeNetCents: number
+  /** Present when presentment ≠ settlement; null for pure USD. */
+  stripeExchangeRate: string | null
+  stripeBalanceTransactionId: string
+}
+
+/**
+ * Convert presentment amount to USD cents using Stripe's balance transaction
+ * exchange rate when the charge is not already in USD. Always expands
+ * `balance_transaction` (USD and EUR) so fee/net are auditable.
+ */
+export async function usdCentsFromPaymentIntent(
+  pi: Stripe.PaymentIntent,
+): Promise<PaymentIntentUsdCredit> {
   const presentmentAmountCents = pi.amount_received || pi.amount
   const rawCurrency = (pi.currency || '').toLowerCase()
   if (!isPresentmentCurrency(rawCurrency)) {
@@ -74,16 +84,6 @@ export async function usdCentsFromPaymentIntent(
   }
   const presentmentCurrency = rawCurrency
 
-  if (presentmentCurrency === 'usd') {
-    return {
-      creditedCents: presentmentAmountCents,
-      presentmentAmountCents,
-      presentmentCurrency,
-    }
-  }
-
-  // EUR (or other supported presentment): use Stripe FX from the charge's
-  // balance transaction when the platform settles in USD.
   const chargeId =
     typeof pi.latest_charge === 'string'
       ? pi.latest_charge
@@ -108,20 +108,44 @@ export async function usdCentsFromPaymentIntent(
     })
   }
 
-  if (bt.exchange_rate == null) {
-    // Do not fall back to bt.amount (net after fees) — that under-credits.
-    throw new AppError(500, 'stripe_fx_invalid')
+  if (
+    !Number.isInteger(bt.fee) ||
+    !Number.isInteger(bt.net) ||
+    bt.fee < 0 ||
+    bt.net < 0
+  ) {
+    throw new AppError(500, 'stripe_missing_settlement_amounts')
   }
 
-  // Gross USD ≈ presentment minor units * rate, rounded to nearest cent.
-  const creditedCents = Math.round(presentmentAmountCents * bt.exchange_rate)
-  if (creditedCents <= 0) {
-    throw new AppError(500, 'stripe_fx_invalid')
+  let creditedCents: number
+  let stripeExchangeRate: string | null
+
+  if (presentmentCurrency === 'usd') {
+    creditedCents = presentmentAmountCents
+    stripeExchangeRate = null
+  } else {
+    // EUR (or other supported presentment): use Stripe FX when platform settles in USD.
+    if (bt.exchange_rate == null) {
+      // Do not fall back to bt.amount (net after fees) — that under-credits.
+      throw new AppError(500, 'stripe_fx_invalid')
+    }
+
+    // Gross USD ≈ presentment minor units * rate, rounded to nearest cent.
+    creditedCents = Math.round(presentmentAmountCents * bt.exchange_rate)
+    if (creditedCents <= 0) {
+      throw new AppError(500, 'stripe_fx_invalid')
+    }
+    stripeExchangeRate = String(bt.exchange_rate)
   }
+
   return {
     creditedCents,
     presentmentAmountCents,
     presentmentCurrency,
+    stripeFeeCents: bt.fee,
+    stripeNetCents: bt.net,
+    stripeExchangeRate,
+    stripeBalanceTransactionId: bt.id,
   }
 }
 
@@ -141,15 +165,18 @@ export async function creditFromPaymentIntent(
     throw new AppError(404, 'user_not_found')
   }
 
-  const { creditedCents, presentmentAmountCents, presentmentCurrency } =
-    await usdCentsFromPaymentIntent(pi)
+  const credit = await usdCentsFromPaymentIntent(pi)
 
   const { created } = await creditFunding({
     userId,
-    amountCents: creditedCents,
-    presentmentAmountCents,
-    presentmentCurrency,
+    amountCents: credit.creditedCents,
+    presentmentAmountCents: credit.presentmentAmountCents,
+    presentmentCurrency: credit.presentmentCurrency,
     stripePaymentIntentId: pi.id,
+    stripeFeeCents: credit.stripeFeeCents,
+    stripeNetCents: credit.stripeNetCents,
+    stripeExchangeRate: credit.stripeExchangeRate,
+    stripeBalanceTransactionId: credit.stripeBalanceTransactionId,
   })
 
   return { created, userId }

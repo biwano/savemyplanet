@@ -85,6 +85,10 @@ describe('POST /account/credit', () => {
       amountCents: 2500,
       type: 'funding',
       stripePaymentIntentId: null,
+      stripeFeeCents: null,
+      stripeNetCents: null,
+      stripeExchangeRate: null,
+      stripeBalanceTransactionId: null,
     })
   })
 })
