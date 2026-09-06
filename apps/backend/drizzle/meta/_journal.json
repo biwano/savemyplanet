@@ -85,6 +85,13 @@
       "when": 1788705556767,
       "tag": "0011_add_retirement_klima_attempt",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1788706054280,
+      "tag": "0012_add_retirement_concurrency_uniques",
+      "breakpoints": true
     }
   ]
 }

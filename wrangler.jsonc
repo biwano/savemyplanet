@@ -1,0 +1,10 @@
+{
+  // Expo web staging — static assets Worker (not Pages).
+  // Deployed by .github/workflows/deploy-expo-web-staging.yml after `expo export --platform web`.
+  "name": "clearmycarbon-staging",
+  "compatibility_date": "2026-09-06",
+  "assets": {
+    "directory": "./apps/mobile/dist",
+    "not_found_handling": "single-page-application"
+  }
+}

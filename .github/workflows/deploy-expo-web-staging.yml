@@ -1,0 +1,65 @@
+name: Deploy Expo web staging
+
+# Export apps/mobile for web and publish to a Cloudflare Workers static-assets Worker.
+# Triggers on push to staging (same branch as staging API deploy).
+on:
+  push:
+    branches: [staging]
+    paths:
+      - 'apps/mobile/**'
+      - 'packages/api-types/**'
+      - 'pnpm-lock.yaml'
+      - 'wrangler.jsonc'
+      - '.github/workflows/deploy-expo-web-staging.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-expo-web-staging
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Export and deploy Cloudflare Worker
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: staging
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.7.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Export web
+        working-directory: apps/mobile
+        env:
+          EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL }}
+          EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ vars.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+        run: |
+          if [ -z "${EXPO_PUBLIC_API_URL}" ]; then
+            echo "Set GitHub Environment staging variable EXPO_PUBLIC_API_URL" >&2
+            exit 1
+          fi
+          if [ -z "${EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY}" ]; then
+            echo "Set GitHub Environment staging variable EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY" >&2
+            exit 1
+          fi
+          pnpm export:web
+
+      - name: Publish to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy

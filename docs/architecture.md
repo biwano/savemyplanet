@@ -2,16 +2,15 @@
 
 ## Monorepo
 
-Planned layout (not created yet):
-
 ```
 apps/
-  mobile/     # client: evaluate activities, fund, request retirement
+  mobile/     # Expo client: evaluate, fund, request retirement (+ web staging on Cloudflare Workers)
   backend/    # API: accounts, quotes, retirement orchestration
-packages/     # shared types / API contracts, when needed
+packages/
+  api-types/  # frozen HTTP wire types shared with the Expo app
 ```
 
-Keep one repo. Shared types belong in `packages/` only after both apps exist and would otherwise duplicate them.
+Keep one repo. Shared types live in `packages/api-types` when both apps would otherwise duplicate them.
 
 ## Stack (chosen)
 

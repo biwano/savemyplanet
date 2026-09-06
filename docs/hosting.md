@@ -7,7 +7,7 @@ Free tiers to develop and demo. They sleep, pause, or cap CPU. Store distributio
 | API (`apps/backend`) | **Google Cloud Run** (`europe-west1` Belgium, or `europe-west9` Paris) | Hono Node container. Handles LLM calls, Stripe integration, and Klima x402 orchestration. |
 | DB | **Neon** AWS `eu-central-1` (Frankfurt) | Serverless Postgres. Auto-suspends compute when idle; wakes on request. |
 | Auth | **Clerk** | User management and auth. Polished Expo components. |
-| Mobile (`apps/mobile`) | **Expo Go + EAS free** (+ **Expo web** for staging) | Dev on Expo Go. EAS for internal builds. Staging demo via Expo web → staging API. |
+| Mobile (`apps/mobile`) | **Expo Go + EAS free** (+ **Cloudflare Workers** static assets for Expo web staging) | Dev on Expo Go. EAS for internal builds. Staging demo via Expo web on a Workers assets Worker → staging API. |
 | Secrets / service wallet key | **Cloud Run secrets** | Secure storage for Klima keys, DB credentials, and Stripe keys. |
 
 Hono on Cloud Run connects to Neon Postgres via the Drizzle driver. Keep the API and DB in **Europe** so that hop stays short. The phone talks only to Cloud Run; do not place Neon in the US to chase Klima/x402. Keep the API synchronous until timeouts force an async redesign. User management is handled by Clerk.
@@ -23,20 +23,19 @@ Hono on Cloud Run connects to Neon Postgres via the Drizzle driver. Keep the API
 | Stripe | **Test** mode keys + test webhook (`STAGING_STRIPE_*`) | **Live** keys + live webhook (`STRIPE_*`) |
 | Admin | Separate key (`STAGING_ADMIN_API_KEY`) | `ADMIN_API_KEY` |
 | Klima retire | **Fake** (env-gated stub; no USDC spend). Discover/quote still hit live Klima reads. | Real x402 from service wallet; **boot fails** if fake mode is set |
-| Client | Expo web + Expo Go / EAS preview → staging `EXPO_PUBLIC_API_URL` | Native (later) → prod URL |
+| Client | Cloudflare Workers (Expo web assets) + Expo Go / EAS preview → staging `EXPO_PUBLIC_API_URL` | Native (later) → prod URL |
 
 Staging is the default integration target for mobile until an explicit production cutover. Fake retire must never be enabled on the production service. Details and checkboxes: [plan.md Phase S](plan.md#phase-s--staging).
 
-**Git branches:** push to **`staging`** → migrate + deploy **staging** API; push to **`main`** → migrate + deploy **production** API. Do not cross-wire those triggers.
+**Git branches:** push to **`staging`** → migrate + deploy **staging** API **and** deploy Expo web to a **Cloudflare Workers** static-assets Worker; push to **`main`** → migrate + deploy **production** API. Do not cross-wire those triggers. Production web cutover is out of scope for S2.
 
-Expo web hosting (EAS Hosting or Cloudflare Pages) is in scope for **staging** demos; allow that HTTPS origin on staging `CORS_ORIGINS`.
+Expo web staging is hosted on **Cloudflare Workers** (static assets Worker `clearmycarbon-staging`, not the API host); allow that HTTPS origin on staging `CORS_ORIGINS`. Custom domain optional (`staging.app.clearmycarbon.com` or a `*.workers.dev` URL). Deploy on **push to `staging`** (export + `wrangler deploy`); document the workflow alongside the staging API deploy.
 
 ## Why not the usual free APIs
 
 - **Supabase** — Excellent integrated platform, but the free tier pauses after 7 days of inactivity requiring a manual restore.
 - **Vercel Hobby** — [Non-commercial only](https://vercel.com/docs/limits/fair-use-guidelines). Since this app takes a markup, it is commercial.
-
-Optional for Expo web staging (not the API host): **EAS Hosting** or Cloudflare Pages. Cloudflare DNS if we have a domain (`*.run.app` works without it).
+- **EAS Hosting** — Fine for Expo web, but we chose a Cloudflare Workers static-assets Worker for S2 (same static-export deploy; SPA fallback via Wrangler). Cloudflare DNS if we have a domain (`*.run.app` works without it for the API).
 
 ## Not free (plan for it)
 
@@ -75,6 +74,26 @@ Mirror production, but trigger on **push to `staging`** (not `main`):
 3. Build/push image tags `backend:staging-<sha>` / `backend:staging-latest` and deploy **`savemyplanet-api-staging`** ([`.github/workflows/deploy-backend-staging.yml`](../.github/workflows/deploy-backend-staging.yml); image only; staging secrets/env stay on that service)
 
 Order is the same as production: **CI → migrate → deploy**. Pushes to `main` must not update staging; pushes to `staging` must not update production. Image tags are prefixed (`staging-…`) so they never overwrite production `backend:latest`.
+
+### Expo web → Cloudflare Workers (S2)
+
+[`.github/workflows/deploy-expo-web-staging.yml`](../.github/workflows/deploy-expo-web-staging.yml) runs on **push to `staging`** (paths under `apps/mobile` / `packages/api-types` / `wrangler.jsonc`, or `workflow_dispatch`):
+
+1. `pnpm install` + `pnpm --filter mobile export:web` (`expo export --platform web` → `apps/mobile/dist`)
+2. `wrangler deploy` using root [`wrangler.jsonc`](../wrangler.jsonc) (Worker name **`clearmycarbon-staging`**, assets from `apps/mobile/dist`, SPA `not_found_handling` for Expo Router)
+
+GitHub Environment **`staging`** needs:
+
+| Kind | Name | Value |
+| --- | --- | --- |
+| Variable | `EXPO_PUBLIC_API_URL` | Staging Cloud Run URL (same as table below) |
+| Variable | `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk **development** publishable key (`pk_test_…`) |
+| Secret | `CLOUDFLARE_API_TOKEN` | Token with **Edit Cloudflare Workers** (or Workers Scripts / Assets edit) |
+| Secret | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account id |
+
+One-time Cloudflare: first `wrangler deploy` creates Worker `clearmycarbon-staging`. Optional custom domain `staging.app.clearmycarbon.com` — if you use a `*.workers.dev` URL instead, set staging Cloud Run `CORS_ORIGINS` to that exact HTTPS origin (no `*`). Do **not** use Cloudflare’s “Connect to Git” Pages flow; CI deploys via Wrangler.
+
+Local: copy [`apps/mobile/.env.example`](../apps/mobile/.env.example) → `apps/mobile/.env` (or export the same `EXPO_PUBLIC_*` vars), then `pnpm --filter mobile web` / `export:web`.
 
 ### Staging URLs (record for Expo)
 

@@ -191,7 +191,7 @@ Timeouts: Cloud Run request timeout ≥ Klima wait (start at 60s, raise if neede
 - [x] Tests: success path resets evaluations to 10; Klima failure leaves remaining unchanged.
 - [x] **Follow-up:** background/job or on-read retry for `pending_index` rows — poll Klima `/certificate` by `txHash`, store `certificateUrl`, flip status to `settled`.
 - [x] **Follow-up:** reconcile when Klima succeeds on-chain but local `capture`/settle then fails — row can stick at `submitted` with funds still reserved; recover tx hash, capture, and move to `settled` / `pending_index`.
-- [x] **Follow-up (side plan C):** C1 headroom + C2 ambiguous-outcome + C3 attempt marker done; remaining: schema UNIQUEs (C4). See [Side plan — Retirement concurrency + Klima wallet safety](#side-plan--retirement-concurrency--klima-wallet-safety).
+- [x] **Follow-up (side plan C):** C1–C4 done (C5 deferred). See [Side plan — Retirement concurrency + Klima wallet safety](#side-plan--retirement-concurrency--klima-wallet-safety).
 
 ### B9. Retirement history
 
@@ -231,13 +231,14 @@ Shared demo / integration environment before (and while) building mobile. Stagin
 
 ### S2. Expo web → staging API
 
-- [ ] **Done when:** an Expo **web** build is hosted (EAS Hosting or Cloudflare Pages) and talks only to the staging API URL; sign-in (Clerk), health, and at least evaluate → quote → confirm retire (fake) works in a browser.
+- [ ] **Done when:** an Expo **web** build is hosted on a **Cloudflare Workers** static-assets Worker and talks only to the staging API URL; sign-in (Clerk), health, and at least evaluate → quote → confirm retire (fake) works in a browser.
 
-- [ ] Create `apps/mobile` early enough for web (can precede full native Phase M polish): Expo + TypeScript + Expo Router with web enabled.
-- [ ] Config: `EXPO_PUBLIC_API_URL` = staging Cloud Run URL. No Klima URLs or private keys in the client.
-- [ ] Clerk Expo/web with the **development** publishable key matching S1.
-- [ ] Export web (`npx expo export --platform web`) and deploy a preview URL; add that origin to staging `CORS_ORIGINS`.
-- [ ] Cold-start tolerance (spinner/retry) same as native later.
+- [x] Create `apps/mobile` early enough for web (can precede full native Phase M polish): Expo + TypeScript + Expo Router with web enabled.
+- [x] Config: `EXPO_PUBLIC_API_URL` = staging Cloud Run URL. No Klima URLs or private keys in the client.
+- [x] Clerk Expo/web with the **development** publishable key matching S1.
+- [x] **Deploy trigger:** on **push to the `staging` git branch**, export web (`npx expo export --platform web`) and deploy via **`wrangler deploy`** to Worker **`clearmycarbon-staging`** (same branch that deploys the staging API). Document the workflow in [hosting.md](hosting.md). Pushes to `main` must not update the staging web deploy.
+- [ ] Add the Cloudflare Worker HTTPS origin to staging `CORS_ORIGINS` (see [hosting.md](hosting.md)). Confirm after first `*.workers.dev` URL / custom domain is known.
+- [x] Cold-start tolerance (spinner/retry) same as native later.
 
 Native Expo Go / EAS (Phase M) should default to the same staging API until a production mobile cutover is explicit.
 
@@ -326,7 +327,7 @@ Default: evaluation requires auth (simpler). Logged-out evaluate is a later cont
 
 - [ ] `eas.json` development + preview profiles.
 - [ ] Point preview builds at the **staging** Cloud Run URL (`EXPO_PUBLIC_API_URL`).
-- [ ] Keep / refresh the Expo **web** staging deploy from S2 as part of preview.
+- [ ] Keep / refresh the Expo **web** staging deploy on Cloudflare Workers from S2 as part of preview.
 - Store listing (Apple/Google) is **out of this plan** (paid accounts).
 
 ---
@@ -497,13 +498,13 @@ EIP-3009 / Klima `salt` is **out of scope** to “fix”: we do not mint nonces;
 
 ### C4. Structural uniqueness for ledger + tx hash
 
-- [ ] **Done when:** DB rejects a second `reserve`/`capture`/`release` for the same `retirement_id` + `type`, and rejects a second retirement row with the same non-null `tx_hash`; migrations named; existing data cleaned or verified unique first.
+- [x] **Done when:** DB rejects a second `reserve`/`capture`/`release` for the same `retirement_id` + `type`, and rejects a second retirement row with the same non-null `tx_hash`; migrations named; existing data cleaned or verified unique first.
 
-- [ ] Migration (e.g. `--name add_retirement_concurrency_uniques`):
+- [x] Migration (e.g. `--name add_retirement_concurrency_uniques`):
   - `UNIQUE (retirement_id, type)` on `ledger_entries` where `retirement_id IS NOT NULL` (partial unique index if funding rows keep null `retirement_id`).
   - Partial `UNIQUE (tx_hash)` on `retirements` where `tx_hash IS NOT NULL`.
-- [ ] Confirm orchestration still relies on CAS; constraints are belt-and-suspenders (duplicate capture txn must fail closed).
-- [ ] Tests: attempting a second capture for the same retirement fails at DB or domain layer; duplicate `tx_hash` insert/update rejected.
+- [x] Confirm orchestration still relies on CAS; constraints are belt-and-suspenders (duplicate capture txn must fail closed).
+- [x] Tests: attempting a second capture for the same retirement fails at DB or domain layer; duplicate `tx_hash` insert/update rejected.
 
 ### C5. Shared retire rate limit (optional; headroom is C1)
 
@@ -534,4 +535,4 @@ EIP-3009 / Klima `salt` is **out of scope** to “fix”: we do not mint nonces;
 - [x] *Side:* N1 network throttling (parallel OK)
 - [x] *Side:* F1 Stripe fee + FX on funding (parallel OK; does not block API freeze)
 - [x] *Side:* F2 Klima auth/spend on retire (parallel OK; after or with F1)
-- [ ] *Side:* C4 retirement concurrency UNIQUEs (C1–C3 + C5 deferred done)
+- [x] *Side:* C4 retirement concurrency UNIQUEs (C1–C4 + C5 deferred done)

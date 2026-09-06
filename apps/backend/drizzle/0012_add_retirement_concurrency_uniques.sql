@@ -1,0 +1,2 @@
+CREATE UNIQUE INDEX "ledger_entries_retirement_id_type_unique" ON "ledger_entries" USING btree ("retirement_id","type") WHERE "ledger_entries"."retirement_id" IS NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "retirements_tx_hash_unique" ON "retirements" USING btree ("tx_hash") WHERE "retirements"."tx_hash" IS NOT NULL;
