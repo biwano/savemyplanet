@@ -54,8 +54,8 @@ async function callOpenRouter(activity: string): Promise<string> {
       Authorization: `Bearer ${key}`,
       'Content-Type': 'application/json',
       // Optional OpenRouter attribution headers (ignored by routing).
-      'HTTP-Referer': 'https://savemyplanet.app',
-      'X-Title': 'SaveMyPlanet',
+      'HTTP-Referer': 'https://app.clearmycarbon.com',
+      'X-Title': 'ClearMyCarbon',
     },
     body: JSON.stringify({
       model: openRouterModel(),

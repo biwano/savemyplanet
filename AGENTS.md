@@ -1,6 +1,6 @@
-# SaveMyPlanet
+# ClearMyCarbon
 
-This repository is a **monorepo** for a mobile app that lets people retire carbon credits, plus the backend that performs those retirements.
+This repository is a **monorepo** for **ClearMyCarbon** — a mobile app that lets people retire carbon credits, plus the backend that performs those retirements. (Repo/infra paths may still say `savemyplanet`; that is a legacy codename, not the product name.)
 
 Read this file first. Detailed notes live in the files below — keep them in sync when product or architecture changes.
 

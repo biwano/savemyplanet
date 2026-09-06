@@ -19,7 +19,7 @@ import {
   type RetireResult,
 } from './vendor/klima-retire'
 
-/** Fixed for SaveMyPlanet: pay Klima in USDC on Base. */
+/** Fixed for ClearMyCarbon: pay Klima in USDC on Base. */
 export const KLIMA_INPUT_TOKEN = 'usdc' as const
 
 export type { DiscoverFilters }

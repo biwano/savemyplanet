@@ -1,6 +1,8 @@
 # Product
 
-SaveMyPlanet helps people retire carbon credits from a mobile app.
+**Commercial name: ClearMyCarbon.** The repo and some infra still use the legacy codename `savemyplanet`; rename those when convenient — they are not the public brand.
+
+ClearMyCarbon helps people retire carbon credits from a mobile app.
 
 ## Goal
 
@@ -22,7 +24,7 @@ Evaluation does not require a funded account. Retirement does.
 
 ## Pricing
 
-Users pay SaveMyPlanet, not Klima. The price shown in the app is Klima’s retirement cost **plus our markup**. That is why retirement is never direct from the mobile app: if the client called x402, we could not take a margin.
+Users pay ClearMyCarbon, not Klima. The price shown in the app is Klima’s retirement cost **plus our markup**. That is why retirement is never direct from the mobile app: if the client called x402, we could not take a margin.
 
 The funded account is debited at the marked-up price. The markup is fixed at **40%** (4000 basis points). The app never surfaces the raw x402 wholesale quote.
 

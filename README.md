@@ -1,15 +1,17 @@
-# SaveMyPlanet
+# ClearMyCarbon
 
 A mobile app for retiring carbon credits, plus the backend that performs those retirements.
 
-A person describes an activity, gets a suggested tCO₂e, funds a fiat balance, and retires credits against a Klima carbon class. They receive a public retirement certificate. The app never talks to Klima directly: the backend quotes, marks up, and retires so SaveMyPlanet can charge **40% over Klima’s cost**.
+**Commercial name:** ClearMyCarbon. The git repo and some cloud resources may still use the legacy codename `savemyplanet`.
+
+A person describes an activity, gets a suggested tCO₂e, funds a fiat balance, and retires credits against a Klima carbon class. They receive a public retirement certificate. The app never talks to Klima directly: the backend quotes, marks up, and retires so ClearMyCarbon can charge **40% over Klima’s cost**.
 
 Retirement is irreversible. The app must confirm amount, marked-up cost, and certificate attribution before the backend executes.
 
 ## How it works
 
 ```
-mobile app  →  SaveMyPlanet backend  →  Klima x402
+mobile app  →  ClearMyCarbon backend  →  Klima x402
                     ↑
              funded user accounts (Stripe)
 ```

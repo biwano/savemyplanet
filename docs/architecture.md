@@ -43,7 +43,7 @@ Chosen hosts: [hosting.md](hosting.md).
 ## System
 
 ```
-mobile app  →  SaveMyPlanet backend  →  Klima x402 (https://x402.klimalabs.com/)
+mobile app  →  ClearMyCarbon backend  →  Klima x402 (https://x402.klimalabs.com/)
                     ↑
              funded user accounts
 ```
@@ -54,7 +54,7 @@ mobile app  →  SaveMyPlanet backend  →  Klima x402 (https://x402.klimalabs.c
 
 ## Accounts and funding
 
-Retirement spends the user’s SaveMyPlanet balance, not a user-held crypto wallet in the mobile app.
+Retirement spends the user’s ClearMyCarbon balance, not a user-held crypto wallet in the mobile app.
 
 **Deposits:** fiat via **Stripe** (USD or EUR presentment). **No crypto deposits.** Credit **gross** presentment (converted to USD cents once); do not deduct Stripe fees from the ledger. Fee recovery is via retirement markup — see [product.md](product.md). **Minimum:** 500 minor units ($5 / €5).
 
