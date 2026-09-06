@@ -8,6 +8,7 @@ import {
   klimaRetireMode,
 } from '../klima/config'
 import { retire as klimaRetire } from '../klima/index'
+import { classifyKlimaFailure } from '../klima/errors'
 import { release, reserve } from '../ledger/index'
 import {
   fakeAuthMicrosFromKlimaTotalCents,
@@ -16,6 +17,7 @@ import {
 } from '../pricing/markup'
 import { beneficiaryAddressFromUserId } from '../users/beneficiary'
 import { apiRetirementFromRow, type APIRetirement } from './api'
+import { admitRetirementForKlima } from './headroom'
 import { settleRetirement } from './settle'
 
 export type ExecuteRetirementInput = {
@@ -26,9 +28,24 @@ export type ExecuteRetirementInput = {
 }
 
 /**
- * Orchestrate: load quote → reserve → Klima retire → capture (or release on failure).
+ * Orchestrate: load quote → reserve → C1 headroom admit → Klima retire →
+ * capture (or release on definitive failure).
  * Klima success (`settled` or `pending_index`) resets evaluation quota.
- * Klima failure restores balance and leaves the evaluation quota unchanged.
+ *
+ * C1: real path admits into `submitted` only when live wallet USDC covers
+ * in-flight submitted ceilings + this quote (padded). Fake mode skips the
+ * wallet check. EIP-3009 nonces are independent — the gate protects balance.
+ *
+ * C2: definitive Klima failures (explicit 4xx / known no-relay) call
+ * `releaseReserved`. Ambiguous outcomes (timeout, network, abort, 5xx,
+ * unknown) leave the row `submitted` with funds reserved for reconcile —
+ * releasing after an on-chain success would refund the user while credits
+ * burn. User HTTP may still be 502/504 (`klima_outcome_unknown`).
+ *
+ * C3: admit CAS also persists `klima_attempt_at` / `klima_attempt_id` before
+ * `klimaRetire()`. `submitted` + null `txHash` + attempt marker ⇒ in flight /
+ * crash / ambiguous — do not auto-release (stale attempts stay reserved until
+ * ops proves no relay). Never-admitted rows stay `reserved` (no marker).
  *
  * After Klima returns a tx hash, we persist it (and Klima auth spend) on the
  * `submitted` row in its own commit before capture/settle. If local settle then
@@ -53,16 +70,32 @@ export async function executeRetirement(
       retirementMessage,
     })
 
-  const [submitted] = await db
-    .update(retirements)
-    .set({ status: 'submitted', updatedAt: new Date() })
-    .where(
-      and(eq(retirements.id, retirementId), eq(retirements.status, 'reserved')),
-    )
-    .returning({ id: retirements.id })
-
-  if (!submitted) {
-    throw new AppError(409, 'retirement_state_conflict')
+  try {
+    await admitRetirementForKlima({
+      retirementId,
+      klimaTotalCents,
+    })
+  } catch (err) {
+    // Free user funds only if we never admitted (still reserved). If status
+    // already left reserved, do not release — leave for reconcile / ops.
+    const [row] = await db
+      .select({ status: retirements.status })
+      .from(retirements)
+      .where(eq(retirements.id, retirementId))
+      .limit(1)
+    if (row?.status === 'reserved') {
+      await releaseReserved({
+        userId: input.userId,
+        retirementId,
+        amountCents,
+      })
+    } else {
+      console.error(
+        'admit failed but retirement not reserved; skipping release',
+        { retirementId, status: row?.status, err },
+      )
+    }
+    throw err
   }
 
   let klimaResult
@@ -75,6 +108,18 @@ export async function executeRetirement(
       ...(retirementMessage ? { retirementMessage } : {}),
     })
   } catch (err) {
+    if (classifyKlimaFailure(err) === 'ambiguous') {
+      // Do not release: Klima may already have relayed. Ops/reconcile finish
+      // capture when a txHash appears (or stays reserved until ops proves none).
+      console.error(
+        'ambiguous klima outcome; leaving submitted for reconcile (funds stay reserved)',
+        { retirementId, err },
+      )
+      if (err instanceof AppError && err.message === 'klima_outcome_unknown') {
+        throw err
+      }
+      throw new AppError(502, 'klima_outcome_unknown')
+    }
     await releaseReserved({
       userId: input.userId,
       retirementId,

@@ -191,6 +191,7 @@ Timeouts: Cloud Run request timeout ≥ Klima wait (start at 60s, raise if neede
 - [x] Tests: success path resets evaluations to 10; Klima failure leaves remaining unchanged.
 - [x] **Follow-up:** background/job or on-read retry for `pending_index` rows — poll Klima `/certificate` by `txHash`, store `certificateUrl`, flip status to `settled`.
 - [x] **Follow-up:** reconcile when Klima succeeds on-chain but local `capture`/settle then fails — row can stick at `submitted` with funds still reserved; recover tx hash, capture, and move to `settled` / `pending_index`.
+- [x] **Follow-up (side plan C):** C1 headroom + C2 ambiguous-outcome + C3 attempt marker done; remaining: schema UNIQUEs (C4). See [Side plan — Retirement concurrency + Klima wallet safety](#side-plan--retirement-concurrency--klima-wallet-safety).
 
 ### B9. Retirement history
 
@@ -438,6 +439,81 @@ Low gaps (naive `SUM(quotes)`, manual admin credits) stay out of this side plan.
 - [x] P&L convention (document in a short comment near schema or settle): **quoted COGS** = `quotes.klima_total_cents`; **authorized COGS** = `retirements.klima_auth_value_cents` (ceiling; unused budget may refund on-chain — note that true post-refund spend may still need chain/indexer later). Contribution margin ≈ `user_total` − authorized (or quoted) − Stripe fees − OpenRouter.
 - [x] Tests: mocked real retire with known `authValue` → DB re-read; fake retire behavior matches chosen convention; failure → release with null spend columns; `GET /retirements/:id` still has no wholesale fields.
 
+## Side plan — Retirement concurrency + Klima wallet safety
+
+Does **not** block Phase S (fake retire), API freeze, or mobile. **Should land before** treating production real Klima retires as safe under concurrent users (B10 Done when / post-B10 load). User-ledger concurrency (quote uniqueness, conditional `available`/`reserved` updates, settle CAS) is already correct — this plan closes the **shared service-wallet** and **ambiguous Klima outcome** gaps from the retirement concurrency audit.
+
+Gaps closed here:
+
+| Severity | Gap | Closed by |
+| --- | --- | --- |
+| High | Parallel `klimaRetire()` oversubscribes one `KLIMA_PAYER` USDC balance (EIP-3009 nonces do **not** collide; balances do) | C1 (headroom gate) |
+| High | Klima timeout / network error → `releaseReserved` after an on-chain success (user refunded + credits burned) | C2 |
+| Medium | Crash after Klima success before `txHash` persist → `submitted` with null hash; reconcile cannot recover | C3 |
+| Low | Ledger / `tx_hash` invariants are CAS-only, not structural UNIQUE constraints | C4 |
+| Low | In-memory retirement rate limit is per Cloud Run instance | C5 (optional; headroom is C1) |
+
+EIP-3009 / Klima `salt` is **out of scope** to “fix”: we do not mint nonces; Klima `prepare-auth` returns salt and we relay it verbatim ([x402.md](x402.md)).
+
+### C1. Headroom gate — parallel Klima OK until wallet would overspend
+
+**Chosen approach:** do **not** serialize every real `retire()`. Allow concurrent prepare-auth → relay when headroom remains; **queue or fail closed only when** this retirement’s expected Klima ceiling plus currently in-flight (`submitted`) spend would exceed **live** service-wallet USDC.
+
+- [x] **Done when:** two real retires whose combined ceilings fit under wallet headroom can call Klima in parallel; a third (or any) that would oversubscribe is blocked **before** calling Klima (wait for headroom or structured `503`/`429`); the headroom **claim** is atomic across Cloud Run instances; budget always uses a **live on-chain USDC balance** read (no cache); fake mode skips the gate; user success JSON unchanged.
+
+- [x] **In-flight set:** retirements in status `submitted` (and only those). Sum expected USDC as:
+  - `klima_auth_value_cents` when already persisted, else
+  - linked quote `klima_total_cents` (or that value × a small safety factor / documented pad — prefer over-reserving headroom vs under).
+- [x] **Wallet budget:** **always** read the service wallet’s **live** USDC `balanceOf` on Base (RPC) at claim time. Do **not** use a cached/TTL balance. Budget is live balance alone (no env hard cap).
+- [x] **Claim (short critical section for DB accounting, not full Klima duration):** after local reserve, **before** Klima (prefer before or atomically with `reserved → submitted` so a busy gate can `release` cleanly):
+  1. Fetch **live** USDC balance (outside or just before the DB lock — RPC is not inside a long-held DB txn).
+  2. In one DB transaction (advisory lock **or** `FOR UPDATE` on a single gate row — milliseconds only): sum in-flight expected spend for other `submitted` rows; compare `in_flight + this_ceiling` to the live-derived budget from step 1.
+  3. If over budget → do **not** call Klima: wait/retry with timeout, or fail closed with a structured error (prefer fail-fast over holding user HTTP for Cloud Run’s full timeout). Coordinate with C2/C3 so a refused gate does not leave a zombie `submitted` without an attempt marker.
+  4. If headroom OK → commit so this row counts in the in-flight sum; **release the short lock**; then call `klimaRetire()` (parallel with other admitted retires).
+- [x] When Klima returns (success → settle, or definitive failure → release), that row leaves `submitted` and frees headroom for waiters.
+- [x] Document near orchestration: EIP-3009 nonces stay independent; this gate only protects **USDC balance**. Stuck `submitted` (C2 ambiguous) continues to consume headroom until reconcile — intentional.
+- [x] Tests: (1) two concurrent retires under mocked live balance → both invoke Klima; (2) concurrent pair that would overspend → only one admits, other gets structured busy/insufficient-wallet error without a Klima call; (3) fake mode parallel unchanged; (4) after first settles, a previously blocked size can proceed; (5) balance helper is called on each claim (no cache hit path).
+
+### C2. Never release on ambiguous Klima failure
+
+- [x] **Done when:** timeout, abort, and network-class Klima errors leave the retirement **`submitted`** (funds stay reserved) for reconcile — they do **not** call `releaseReserved`; only **definitive** Klima failures (explicit 4xx/business errors that prove no relay) release; user HTTP may still surface `502`/`504`, but GET history / reconcile can finish capture when a tx appears.
+
+- [x] Classify Klima / vendor errors in one place (`mapKlimaError` or a small helper): `definitive_failure` vs `ambiguous` (timeout `408`, `network_error`, abort, 5xx from relay after prepare-auth, unknown).
+- [x] `executeRetirement` catch path:
+  - **Definitive** → existing `releaseReserved` + rethrow (unchanged product: user not charged).
+  - **Ambiguous** → do **not** release; leave `submitted` (tx hash may still be null); log loudly; rethrow a distinct error code (e.g. `klima_outcome_unknown`) so ops/reconcile know.
+- [x] Extend reconcile (on-read and/or job): for `submitted` **without** `txHash`, do not invent a hash — document ops path; for `submitted` **with** `txHash`, keep today’s capture path. Prefer proving spend via Klima `/certificate` when a hash is known (already). Optional later: chain/`AuthorizationUsed` lookup — only if certificate is insufficient; do not block C2 on full chain indexer.
+- [x] Tests: mocked Klima timeout after “reserve → submitted” → row stays `submitted`, reserved unchanged, no `release` ledger row; mocked definitive Klima 4xx → `released` + release ledger; reconcile still settles when hash present.
+
+### C3. Narrow the submitted-without-hash crash window
+
+- [x] **Done when:** every real (and fake) retire attempt has a durable row in `submitted` **before** the outbound Klima call completes its side effect, and a process crash mid-call is distinguishable from “never called Klima”; reconcile/ops can tell “in flight / unknown” from “released”.
+
+- [x] Already true today: status flips to `submitted` before `klimaRetire()`. Keep that order; do not move Klima before the CAS.
+- [x] Persist a server-only **attempt marker** before calling Klima (same update as `submitted` or immediately after): e.g. `klima_attempt_at` timestamp and/or `klima_attempt_id` (UUID). Optional: store prepare-auth salt / auth nonce when available after prepare (real path) — only if it does not require an extra Klima round-trip before the C1 headroom claim.
+- [x] On Klima success, keep writing `txHash` + auth spend **before** capture (current F2 order).
+- [x] Document: `submitted` + null `txHash` + recent `klima_attempt_at` ⇒ ambiguous / crash; do not auto-release. Stale attempts (e.g. older than Cloud Run timeout + margin) stay reserved until ops or a later policy (manual release only with proof).
+- [x] Tests: assert `submitted` + attempt marker exist before mocked Klima is invoked; success still persists hash then settles.
+
+### C4. Structural uniqueness for ledger + tx hash
+
+- [ ] **Done when:** DB rejects a second `reserve`/`capture`/`release` for the same `retirement_id` + `type`, and rejects a second retirement row with the same non-null `tx_hash`; migrations named; existing data cleaned or verified unique first.
+
+- [ ] Migration (e.g. `--name add_retirement_concurrency_uniques`):
+  - `UNIQUE (retirement_id, type)` on `ledger_entries` where `retirement_id IS NOT NULL` (partial unique index if funding rows keep null `retirement_id`).
+  - Partial `UNIQUE (tx_hash)` on `retirements` where `tx_hash IS NOT NULL`.
+- [ ] Confirm orchestration still relies on CAS; constraints are belt-and-suspenders (duplicate capture txn must fail closed).
+- [ ] Tests: attempting a second capture for the same retirement fails at DB or domain layer; duplicate `tx_hash` insert/update rejected.
+
+### C5. Shared retire rate limit (optional; headroom is C1)
+
+- [x] **Done when:** either (a) multi-instance `POST /retirements` rate limits share state (Redis or similar), or (b) this item is deferred and the PR that closes C1 notes “N1 in-memory limits unchanged; wallet safety is C1 headroom”; if (a), over-limit still returns `429` with the frozen error shape.
+
+- [x] **Deferred (b):** N1 in-memory limits unchanged; wallet safety is C1 headroom. Redis shared rate limits remain a later ops hardening item.
+- [ ] If Redis (or equivalent) is introduced: move N1 retirement limiter store to shared backend; keep other routes in-memory unless cheap to share.
+- [x] Do **not** re-implement wallet headroom here — that is C1.
+- [x] Tests only if (a) is implemented — skipped under (b).
+
 ## Order of work (checklist)
 
 - [x] 0. Phase 0 monorepo + backend health
@@ -458,3 +534,4 @@ Low gaps (naive `SUM(quotes)`, manual admin credits) stay out of this side plan.
 - [x] *Side:* N1 network throttling (parallel OK)
 - [x] *Side:* F1 Stripe fee + FX on funding (parallel OK; does not block API freeze)
 - [x] *Side:* F2 Klima auth/spend on retire (parallel OK; after or with F1)
+- [ ] *Side:* C4 retirement concurrency UNIQUEs (C1–C3 + C5 deferred done)

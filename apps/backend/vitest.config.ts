@@ -7,5 +7,8 @@ export default defineConfig({
     include: ['src/**/*.test.ts'],
     // Route tests use Hono `app.request`; keep them isolated per file.
     pool: 'forks',
+    // Shared Neon + C1 headroom sums all `submitted` rows globally. Parallel
+    // files that leave submitted (e.g. ambiguous Klima) race headroom admits.
+    fileParallelism: false,
   },
 })

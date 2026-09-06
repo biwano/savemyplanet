@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ledgerEntries } from '../../db/schema/ledgerEntries'
 import { retirements } from '../../db/schema/retirements'
 import { users } from '../../db/schema/users'
@@ -61,7 +61,7 @@ describe('GET /retirements/:id', () => {
   }
 
   /** Simulate Klima success + failed local capture (stuck submitted + reserved). */
-  async function stuckSubmittedRetirement(txHash: string) {
+  async function stuckSubmittedRetirement(txHash: string | null) {
     mockKlimaPricing()
     await creditFundingManual({ userId: user.id, amountCents: 5000 })
     const quote = await createUserQuote({ userId: user.id, tonnes: 1 })
@@ -74,7 +74,10 @@ describe('GET /retirements/:id', () => {
         status: 'submitted',
         tonnes: String(quote.tonnes),
         beneficiaryString: 'Ada',
-        txHash,
+        // C3: admitted rows always carry an attempt marker.
+        klimaAttemptAt: new Date(),
+        klimaAttemptId: randomUUID(),
+        ...(txHash != null ? { txHash } : {}),
       })
       .returning()
 
@@ -334,5 +337,63 @@ describe('GET /retirements/:id', () => {
       .where(eq(users.id, user.id))
     expect(balance.reservedCents).toBe(0)
     expect(balance.evaluationsRemaining).toBe(INITIAL_EVALUATIONS_REMAINING)
+  })
+
+  it('on-read leaves submitted without txHash unchanged (no invent / no release)', async () => {
+    const { id, quote } = await stuckSubmittedRetirement(null)
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    try {
+      const app = createTestApp()
+      const res = await app.request(`/retirements/${id}`, {
+        headers: authHeader(),
+      })
+
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body).toEqual({
+        id,
+        status: 'submitted',
+        tonnes: 1,
+        userTotal: quote.userTotal,
+      })
+      // C3 attempt marker is server-only (never on wire).
+      expect(body).not.toHaveProperty('klimaAttemptAt')
+      expect(body).not.toHaveProperty('klimaAttemptId')
+      expect(body).not.toHaveProperty('klima_attempt_at')
+      expect(body).not.toHaveProperty('klima_attempt_id')
+
+      const row = await testDb.query.retirements.findFirst({
+        where: eq(retirements.id, id),
+      })
+      expect(row).toMatchObject({
+        status: 'submitted',
+        txHash: null,
+        certificateUrl: null,
+      })
+      expect(row!.klimaAttemptAt).toBeInstanceOf(Date)
+      expect(row!.klimaAttemptId).toBeTruthy()
+
+      const [balance] = await testDb
+        .select()
+        .from(users)
+        .where(eq(users.id, user.id))
+      expect(balance.reservedCents).toBe(quote.userTotal)
+      expect(balance.availableCents).toBe(5000 - quote.userTotal)
+
+      const entries = await testDb
+        .select({ type: ledgerEntries.type })
+        .from(ledgerEntries)
+        .where(
+          and(
+            eq(ledgerEntries.userId, user.id),
+            eq(ledgerEntries.retirementId, id),
+          ),
+        )
+      expect(entries.some((e) => e.type === 'release')).toBe(false)
+      expect(entries.some((e) => e.type === 'capture')).toBe(false)
+    } finally {
+      errorSpy.mockRestore()
+    }
   })
 })

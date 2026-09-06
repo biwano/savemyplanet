@@ -44,6 +44,11 @@ ensureTestEnv('STRIPE_WEBHOOK_SECRET', 'whsec_test_harness')
 ensureTestEnv('ADMIN_API_KEY', 'test-admin-key')
 ensureTestEnv('OPENROUTER_API_KEY', 'sk-or-test-harness')
 ensureTestEnv('CORS_ORIGINS', '*')
+// Valid 32-byte key so C1 / payer helpers can load without a real `.env` key.
+ensureTestEnv(
+  'KLIMA_PAYER_PRIVATE_KEY',
+  '0x1111111111111111111111111111111111111111111111111111111111111111',
+)
 process.env.NODE_ENV = 'test'
 
 vi.mock('@clerk/backend', async (importOriginal) => {

@@ -66,6 +66,21 @@ export function usdcMicrosToCeilCents(micros: bigint): number {
 }
 
 /**
+ * Floor USDC base units to USD cents. Used for wallet headroom budget so we
+ * never admit more spend than on-chain balance can cover.
+ */
+export function usdcMicrosToFloorCents(micros: bigint): number {
+  if (micros < 0n) {
+    throw new Error('USDC micros must be non-negative')
+  }
+  const cents = Number(micros / USDC_MICROS_PER_CENT)
+  if (!Number.isSafeInteger(cents)) {
+    throw new Error('USDC amount exceeds safe integer cents range')
+  }
+  return cents
+}
+
+/**
  * Synthetic auth ceiling for fake retire: reverse the stored ceiled cents
  * into micros (`cents * 10_000`). Documented staging convention — not a
  * real prepare-auth value.

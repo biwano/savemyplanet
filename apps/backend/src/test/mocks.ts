@@ -10,6 +10,7 @@ import type {
   KlimaRetireResult,
 } from '../klima/index'
 import * as klima from '../klima/index'
+import * as usdcBalance from '../klima/usdcBalance'
 import * as stripeClient from '../stripe/client'
 import * as funding from '../stripe/funding'
 
@@ -142,10 +143,22 @@ export function mockKlimaPricing(input?: {
   )
 }
 
+/**
+ * Stub live service-wallet USDC balance for C1 headroom (no Base RPC).
+ * Amount is USD cents (floor of on-chain micros).
+ */
+export function mockServiceWalletUsdcBalance(cents: number) {
+  return vi
+    .spyOn(usdcBalance, 'readServiceWalletUsdcBalanceCents')
+    .mockResolvedValue(cents)
+}
+
 /** Stub Klima retire for `POST /retirements` (no x402 network / payer key). */
 export function mockKlimaRetire(
   result: Partial<KlimaRetireResult> | Error = {},
 ) {
+  // Real-mode retirements admit via C1 headroom before retire(); keep RPC out.
+  mockServiceWalletUsdcBalance(50_000_000)
   if (result instanceof Error) {
     return vi.spyOn(klima, 'retire').mockRejectedValue(result)
   }

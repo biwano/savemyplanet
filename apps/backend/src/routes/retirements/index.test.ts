@@ -149,7 +149,11 @@ describe('POST /retirements', () => {
     expect(body).not.toHaveProperty('klimaTotal')
     expect(body).not.toHaveProperty('klimaAuthValueMicros')
     expect(body).not.toHaveProperty('klimaAuthValueCents')
-    expect(JSON.stringify(body)).not.toMatch(/klima_total|klima_auth|authValue/i)
+    expect(body).not.toHaveProperty('klimaAttemptAt')
+    expect(body).not.toHaveProperty('klimaAttemptId')
+    expect(JSON.stringify(body)).not.toMatch(
+      /klima_total|klima_auth|klima_attempt|authValue|klimaAttempt/i,
+    )
 
     expect(retireSpy).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -283,14 +287,14 @@ describe('POST /retirements', () => {
     expect(entries.some((e) => e.type === 'release')).toBe(false)
   })
 
-  it('on Klima failure: releases reserve, leaves evaluations unchanged', async () => {
+  it('on definitive Klima 4xx: releases reserve, leaves evaluations unchanged', async () => {
     const quote = await fundedQuote()
     await testDb
       .update(users)
       .set({ evaluationsRemaining: 4 })
       .where(eq(users.id, user.id))
 
-    mockKlimaRetire(new AppError(502, 'klima_error'))
+    mockKlimaRetire(new AppError(400, 'invalid_amount'))
 
     const app = createTestApp()
     const res = await app.request('/retirements', {
@@ -302,8 +306,8 @@ describe('POST /retirements', () => {
       }),
     })
 
-    expect(res.status).toBe(502)
-    expect(await res.json()).toMatchObject({ error: 'klima_error' })
+    expect(res.status).toBe(400)
+    expect(await res.json()).toMatchObject({ error: 'invalid_amount' })
 
     const row = await testDb.query.retirements.findFirst({
       where: eq(retirements.quoteId, quote.quoteId),
@@ -342,6 +346,77 @@ describe('POST /retirements', () => {
       ]),
     )
     expect(entries.some((e) => e.type === 'capture')).toBe(false)
+  })
+
+  it('on ambiguous Klima timeout: leaves submitted reserved (no release)', async () => {
+    const quote = await fundedQuote()
+    await testDb
+      .update(users)
+      .set({ evaluationsRemaining: 4 })
+      .where(eq(users.id, user.id))
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    mockKlimaRetire(new AppError(504, 'klima_outcome_unknown'))
+
+    try {
+      const app = createTestApp()
+      const res = await app.request('/retirements', {
+        method: 'POST',
+        headers: { ...authHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          quoteId: quote.quoteId,
+          beneficiaryString: 'Ada',
+        }),
+      })
+
+      expect(res.status).toBe(504)
+      expect(await res.json()).toMatchObject({ error: 'klima_outcome_unknown' })
+
+      const row = await testDb.query.retirements.findFirst({
+        where: eq(retirements.quoteId, quote.quoteId),
+      })
+      expect(row).toMatchObject({
+        userId: user.id,
+        status: 'submitted',
+        certificateUrl: null,
+        txHash: null,
+        klimaAuthValueMicros: null,
+        klimaAuthValueCents: null,
+        klimaRetireTotalMicros: null,
+      })
+      expect(row!.klimaAttemptAt).toBeInstanceOf(Date)
+      expect(row!.klimaAttemptId).toBeTruthy()
+
+      const [balance] = await testDb
+        .select()
+        .from(users)
+        .where(eq(users.id, user.id))
+      expect(balance.availableCents).toBe(5000 - quote.userTotal)
+      expect(balance.reservedCents).toBe(quote.userTotal)
+      expect(balance.evaluationsRemaining).toBe(4)
+
+      const entries = await testDb
+        .select({
+          type: ledgerEntries.type,
+          amountCents: ledgerEntries.amountCents,
+        })
+        .from(ledgerEntries)
+        .where(
+          and(
+            eq(ledgerEntries.userId, user.id),
+            eq(ledgerEntries.retirementId, row!.id),
+          ),
+        )
+      expect(entries).toEqual(
+        expect.arrayContaining([
+          { type: 'reserve', amountCents: quote.userTotal },
+        ]),
+      )
+      expect(entries.some((e) => e.type === 'release')).toBe(false)
+      expect(entries.some((e) => e.type === 'capture')).toBe(false)
+    } finally {
+      errorSpy.mockRestore()
+    }
   })
 
   it('rejects an expired quote', async () => {
@@ -399,7 +474,7 @@ describe('POST /retirements', () => {
 
   it('rejects a quote already used after a released (failed) attempt', async () => {
     const quote = await fundedQuote()
-    mockKlimaRetire(new AppError(502, 'klima_error'))
+    mockKlimaRetire(new AppError(400, 'invalid_amount'))
 
     const app = createTestApp()
     const first = await app.request('/retirements', {
@@ -410,7 +485,7 @@ describe('POST /retirements', () => {
         beneficiaryString: 'Ada',
       }),
     })
-    expect(first.status).toBe(502)
+    expect(first.status).toBe(400)
 
     mockKlimaRetire()
     const second = await app.request('/retirements', {

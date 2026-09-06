@@ -137,3 +137,35 @@ export function klimaPayerPrivateKey(): Hex {
   }
   return key
 }
+
+/** Default public Base mainnet RPC for live USDC balanceOf (C1 headroom). */
+export const DEFAULT_KLIMA_RPC_URL = 'https://mainnet.base.org'
+
+/** JSON-RPC HTTP endpoint for Base mainnet reads (balanceOf). Always live — no cache. */
+export function klimaRpcUrl(): string {
+  const value = process.env.KLIMA_RPC_URL?.trim()
+  if (value) {
+    return value.replace(/\/+$/, '')
+  }
+  return DEFAULT_KLIMA_RPC_URL
+}
+
+/**
+ * Pad on quote `klima_total_cents` when claiming headroom before prepare-auth
+ * (auth ceiling is usually higher). Default 1000 bps = 10%.
+ */
+export const DEFAULT_KLIMA_HEADROOM_PAD_BPS = 1000
+
+export function klimaHeadroomPadBps(): number {
+  const raw = process.env.KLIMA_HEADROOM_PAD_BPS?.trim()
+  if (!raw) {
+    return DEFAULT_KLIMA_HEADROOM_PAD_BPS
+  }
+  const n = Number(raw)
+  if (!Number.isInteger(n) || n < 0 || n > 100_000) {
+    throw new Error(
+      'KLIMA_HEADROOM_PAD_BPS must be an integer between 0 and 100000',
+    )
+  }
+  return n
+}

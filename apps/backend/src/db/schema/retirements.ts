@@ -50,6 +50,16 @@ export const retirements = pgTable('retirements', {
    * the auth ceiling. Null when Klima omits it or on fake/failure.
    */
   klimaRetireTotalMicros: text('klima_retire_total_micros'),
+  /**
+   * C3 attempt marker (server-only): set atomically with `reserved` →
+   * `submitted`, before the outbound Klima call. Distinguishes “admitted /
+   * in flight / unknown” (`submitted` + attempt + null `tx_hash`) from
+   * never-called (still `reserved`) and from `released`. Do not auto-release
+   * when attempt is present without a hash — stale attempts stay reserved
+   * until ops proves no relay (Cloud Run timeout + margin is a hint only).
+   */
+  klimaAttemptAt: timestamp('klima_attempt_at'),
+  klimaAttemptId: uuid('klima_attempt_id'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
