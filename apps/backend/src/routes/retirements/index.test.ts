@@ -20,6 +20,7 @@ import {
   mockKlimaCertificate,
   mockKlimaPricing,
   mockKlimaRetire,
+  randomTxHash,
 } from '../../test/mocks'
 import { beneficiaryAddressFromUserId } from '../../users/beneficiary'
 import { INITIAL_EVALUATIONS_REMAINING } from '../../users/quota'
@@ -118,10 +119,10 @@ describe('POST /retirements', () => {
 
     const authValueMicros = '10050000' // slightly above $10.00 wholesale
     const retireTotalMicros = '10000000'
+    const txHash = randomTxHash()
     const retireSpy = mockKlimaRetire({
       status: 'settled',
-      transactionHash:
-        '0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
+      transactionHash: txHash,
       certificateUrl: 'https://carbonmark.com/retirements/b8-success',
       authValueMicros,
       retireTotalMicros,
@@ -174,8 +175,7 @@ describe('POST /retirements', () => {
       status: 'settled',
       beneficiaryString: 'Ada Lovelace',
       retirementMessage: 'For the planet',
-      txHash:
-        '0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
+      txHash,
       certificateUrl: 'https://carbonmark.com/retirements/b8-success',
       klimaAuthValueMicros: authValueMicros,
       klimaAuthValueCents: 1005,
@@ -217,10 +217,10 @@ describe('POST /retirements', () => {
       .where(eq(users.id, user.id))
 
     const authValueMicros = '10020000'
+    const txHash = randomTxHash()
     mockKlimaRetire({
       status: 'pending_index',
-      transactionHash:
-        '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+      transactionHash: txHash,
       certificateUrl: null,
       authValueMicros,
       retireTotalMicros: '10000000',
@@ -253,8 +253,7 @@ describe('POST /retirements', () => {
       userId: user.id,
       quoteId: quote.quoteId,
       status: 'pending_index',
-      txHash:
-        '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+      txHash,
       certificateUrl: null,
       klimaAuthValueMicros: authValueMicros,
       klimaAuthValueCents: 1002,
@@ -503,8 +502,7 @@ describe('POST /retirements', () => {
 
   it('when capture fails after Klima success: leaves submitted with txHash for reconcile', async () => {
     const quote = await fundedQuote()
-    const txHash =
-      '0x1111111111111111111111111111111111111111111111111111111111111111'
+    const txHash = randomTxHash()
     mockKlimaRetire({
       status: 'settled',
       transactionHash: txHash,
@@ -586,8 +584,7 @@ describe('GET /retirements', () => {
     mockKlimaPricing()
     await creditFundingManual({ userId: user.id, amountCents: 10_000 })
     const quote = await createUserQuote({ userId: user.id, tonnes: 1 })
-    const txHash =
-      '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+    const txHash = randomTxHash()
     mockKlimaRetire({
       status: 'pending_index',
       transactionHash: txHash,

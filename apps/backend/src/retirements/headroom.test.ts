@@ -17,6 +17,7 @@ import {
   mockKlimaPricing,
   mockKlimaRetire,
   mockServiceWalletUsdcBalance,
+  randomTxHash,
 } from '../test/mocks'
 import type { LocalUser } from '../users/sync'
 import { headroomCeilingCents } from './headroom'
@@ -117,8 +118,7 @@ describe('C1 Klima wallet headroom', () => {
       await holdRetire
       return {
         status: 'settled' as const,
-        transactionHash:
-          '0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
+        transactionHash: randomTxHash(),
         certificateUrl: 'https://carbonmark.com/retirements/hold',
         authValueMicros: null,
         retireTotalMicros: null,
@@ -194,8 +194,7 @@ describe('C1 Klima wallet headroom', () => {
       await holdRetire
       return {
         status: 'settled' as const,
-        transactionHash:
-          '0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
+        transactionHash: txHash,
         certificateUrl: 'https://carbonmark.com/retirements/c3-attempt',
         authValueMicros: '11000000',
         retireTotalMicros: '10000000',
@@ -204,6 +203,7 @@ describe('C1 Klima wallet headroom', () => {
 
     const quote = await fundedQuote()
     const quoteId = quote.quoteId
+    const txHash = randomTxHash()
     const app = createTestApp()
 
     const promise = app.request('/retirements', {
@@ -233,8 +233,7 @@ describe('C1 Klima wallet headroom', () => {
       .where(eq(retirements.quoteId, quoteId))
     expect(finalRow).toMatchObject({
       status: 'settled',
-      txHash:
-        '0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
+      txHash,
       klimaAuthValueMicros: '11000000',
       klimaAuthValueCents: 1100,
     })
@@ -260,8 +259,7 @@ describe('C1 Klima wallet headroom', () => {
       // path by returning a settled fake-shaped result.
       return {
         status: 'settled' as const,
-        transactionHash:
-          '0xfaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        transactionHash: randomTxHash(),
         certificateUrl: 'https://carbonmark.com/retirements/fake-c3',
         authValueMicros: null,
         retireTotalMicros: null,

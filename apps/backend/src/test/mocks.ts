@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto'
 import { verifyWebhook } from '@clerk/backend/webhooks'
 import type { WebhookEvent } from '@clerk/backend/webhooks'
 import type Stripe from 'stripe'
@@ -153,6 +154,11 @@ export function mockServiceWalletUsdcBalance(cents: number) {
     .mockResolvedValue(cents)
 }
 
+/** Synthetic 32-byte tx hash — unique per call so concurrent retires do not collide on `retirements_tx_hash_unique`. */
+export function randomTxHash(): string {
+  return `0x${randomBytes(32).toString('hex')}`
+}
+
 /** Stub Klima retire for `POST /retirements` (no x402 network / payer key). */
 export function mockKlimaRetire(
   result: Partial<KlimaRetireResult> | Error = {},
@@ -162,15 +168,15 @@ export function mockKlimaRetire(
   if (result instanceof Error) {
     return vi.spyOn(klima, 'retire').mockRejectedValue(result)
   }
-  return vi.spyOn(klima, 'retire').mockResolvedValue({
+  // Fresh hash per retire() invocation (unless the caller overrides).
+  return vi.spyOn(klima, 'retire').mockImplementation(async () => ({
     status: 'settled',
-    transactionHash:
-      '0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
+    transactionHash: randomTxHash(),
     certificateUrl: 'https://carbonmark.com/retirements/test-cert',
     authValueMicros: null,
     retireTotalMicros: null,
     ...result,
-  })
+  }))
 }
 
 /** Stub Klima `/certificate` lookup for pending_index resolve (no x402 network). */

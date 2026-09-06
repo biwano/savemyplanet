@@ -18,6 +18,7 @@ import {
   mockKlimaCertificate,
   mockKlimaPricing,
   mockKlimaRetire,
+  randomTxHash,
 } from '../../test/mocks'
 import { INITIAL_EVALUATIONS_REMAINING } from '../../users/quota'
 import type { LocalUser } from '../../users/sync'
@@ -38,8 +39,7 @@ describe('GET /retirements/:id', () => {
     mockKlimaPricing()
     await creditFundingManual({ userId: user.id, amountCents: 5000 })
     const quote = await createUserQuote({ userId: user.id, tonnes: 1 })
-    const txHash =
-      '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+    const txHash = randomTxHash()
     mockKlimaRetire({
       status: 'pending_index',
       transactionHash: txHash,
@@ -245,8 +245,7 @@ describe('GET /retirements/:id', () => {
   })
 
   it('on-read reconciles submitted: captures, stores certificate, flips to settled', async () => {
-    const txHash =
-      '0x2222222222222222222222222222222222222222222222222222222222222222'
+    const txHash = randomTxHash()
     const { id, quote } = await stuckSubmittedRetirement(txHash)
     const certificateUrl =
       'https://carbonmark.com/retirements/submitted-reconciled'
@@ -303,8 +302,7 @@ describe('GET /retirements/:id', () => {
   })
 
   it('on-read reconciles submitted to pending_index when certificate not indexed', async () => {
-    const txHash =
-      '0x3333333333333333333333333333333333333333333333333333333333333333'
+    const txHash = randomTxHash()
     const { id, quote } = await stuckSubmittedRetirement(txHash)
     mockKlimaCertificate(null)
 
