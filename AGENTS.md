@@ -10,12 +10,12 @@ Read this file first. Detailed notes live in the files below — keep them in sy
 | --- | --- |
 | [docs/product.md](docs/product.md) | Product goal, user flows, and account funding |
 | [docs/architecture.md](docs/architecture.md) | Monorepo layout, chosen stack, and system boundaries |
-| [docs/hosting.md](docs/hosting.md) | Chosen hosts: Cloud Run, Neon, Clerk, Expo EAS (Europe) |
-| [docs/plan.md](docs/plan.md) | Implementation plan: backend first, then mobile |
+| [docs/hosting.md](docs/hosting.md) | Chosen hosts: Cloud Run, Neon, Clerk, Expo EAS (Europe); staging vs production |
+| [docs/plan.md](docs/plan.md) | Implementation plan: backend → staging → API freeze → mobile |
 
 ## Current state
 
-The product and architecture are specified in `docs/`. Phase 0 (monorepo + health + Neon) is done. Stack and hosting are **chosen**. Follow [docs/plan.md](docs/plan.md): backend through API freeze, then mobile. Do not invent extra apps, services, or crypto-wallet UX unless those docs are updated first.
+The product and architecture are specified in `docs/`. Phase 0 (monorepo + health + Neon) is done. Stack and hosting are **chosen**. Follow [docs/plan.md](docs/plan.md): backend through staging (fake retire + Expo web) and API freeze, then mobile. Do not invent extra apps, services, or crypto-wallet UX unless those docs are updated first.
 
 ## Working rules
 

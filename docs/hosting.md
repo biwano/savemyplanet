@@ -7,17 +7,34 @@ Free tiers to develop and demo. They sleep, pause, or cap CPU. Store distributio
 | API (`apps/backend`) | **Google Cloud Run** (`europe-west1` Belgium, or `europe-west9` Paris) | Hono Node container. Handles LLM calls, Stripe integration, and Klima x402 orchestration. |
 | DB | **Neon** AWS `eu-central-1` (Frankfurt) | Serverless Postgres. Auto-suspends compute when idle; wakes on request. |
 | Auth | **Clerk** | User management and auth. Polished Expo components. |
-| Mobile (`apps/mobile`) | **Expo Go + EAS free** | Dev on Expo Go. EAS for internal builds. |
+| Mobile (`apps/mobile`) | **Expo Go + EAS free** (+ **Expo web** for staging) | Dev on Expo Go. EAS for internal builds. Staging demo via Expo web → staging API. |
 | Secrets / service wallet key | **Cloud Run secrets** | Secure storage for Klima keys, DB credentials, and Stripe keys. |
 
 Hono on Cloud Run connects to Neon Postgres via the Drizzle driver. Keep the API and DB in **Europe** so that hop stays short. The phone talks only to Cloud Run; do not place Neon in the US to chase Klima/x402. Keep the API synchronous until timeouts force an async redesign. User management is handled by Clerk.
+
+## Staging vs production
+
+| | Staging | Production |
+| --- | --- | --- |
+| Cloud Run | Separate service (e.g. `savemyplanet-api-staging`); **deploy on push to `staging`** | `savemyplanet-api`; deploy on push to `main` |
+| Neon | Development DB / branch (`STAGING_DATABASE_URL`) | `PRODUCTION_DATABASE_URL` |
+| Clerk | Development instance keys + webhooks → staging URL | Production keys + webhooks → prod URL |
+| Stripe | **Test** mode keys + test webhook | **Live** keys + live webhook |
+| Klima retire | **Fake** (env-gated stub; no USDC spend). Discover/quote still hit live Klima reads. | Real x402 from service wallet; **boot fails** if fake mode is set |
+| Client | Expo web + Expo Go / EAS preview → staging `EXPO_PUBLIC_API_URL` | Native (later) → prod URL |
+
+Staging is the default integration target for mobile until an explicit production cutover. Fake retire must never be enabled on the production service. Details and checkboxes: [plan.md Phase S](plan.md#phase-s--staging).
+
+**Git branches:** push to **`staging`** → migrate + deploy **staging** API; push to **`main`** → migrate + deploy **production** API. Do not cross-wire those triggers.
+
+Expo web hosting (EAS Hosting or Cloudflare Pages) is in scope for **staging** demos; allow that HTTPS origin on staging `CORS_ORIGINS`.
 
 ## Why not the usual free APIs
 
 - **Supabase** — Excellent integrated platform, but the free tier pauses after 7 days of inactivity requiring a manual restore.
 - **Vercel Hobby** — [Non-commercial only](https://vercel.com/docs/limits/fair-use-guidelines). Since this app takes a markup, it is commercial.
 
-Optional later, not the API host: Cloudflare Pages for an Expo web preview; Cloudflare DNS if we have a domain (`*.run.app` works without it).
+Optional for Expo web staging (not the API host): **EAS Hosting** or Cloudflare Pages. Cloudflare DNS if we have a domain (`*.run.app` works without it).
 
 ## Not free (plan for it)
 
@@ -46,6 +63,16 @@ Do **not** run `gcloud builds submit` by hand. After **migrate-production succee
 3. Deploys that digest to Cloud Run (**image only** — keeps existing env, secrets, timeout, ingress)
 
 Order is intentional: **CI → migrate → deploy**, so schema changes apply before the new revision serves traffic.
+
+## Staging migrate + Cloud Run deploy
+
+Mirror production, but trigger on **push to `staging`** (not `main`):
+
+1. CI on the `staging` branch
+2. Migrate staging Neon (`STAGING_DATABASE_URL` / GitHub Environment `staging`)
+3. Build/push image and deploy **`savemyplanet-api-staging`** (image only; staging secrets/env stay on that service)
+
+Workflows for this are part of [plan.md S1](plan.md#s1-staging-api); add them when implementing Phase S. Production workflows on `main` must not deploy the staging service.
 
 ### One-time GCP setup
 

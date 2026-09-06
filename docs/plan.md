@@ -1,6 +1,6 @@
 # Implementation plan
 
-Build **backend first**, then the Expo app against a frozen API. Do not start `apps/mobile` until Phase B is shippable on Cloud Run (or equivalent local Docker) and the contract in [API contract](#api-contract-freeze-before-mobile) is stable.
+Build **backend first**, then a **staging** API + Expo web demo, then the Expo app against a frozen API. Do not start full native Phase M until Phase B is shippable on Cloud Run (or equivalent local Docker), [Phase S](#phase-s--staging) can host end-to-end demos without real Klima spend, and the contract in [API contract](#api-contract-freeze-before-mobile) is stable.
 
 Chosen stack and hosts: [architecture.md](architecture.md), [hosting.md](hosting.md). Retirement mechanics: [x402.md](x402.md). Product rules: [product.md](product.md).
 
@@ -18,8 +18,9 @@ Mark a phase `[x]` only when its **Done when** is true. Check off bullets as the
 ```
 0. Monorepo
    → B. Backend (local → Neon → Cloud Run)
-     → API freeze
-       → M. Mobile (Expo Go → EAS)
+     → S. Staging (API + Expo web)
+       → API freeze
+         → M. Mobile (Expo Go → EAS)
 ```
 
 ---
@@ -181,9 +182,9 @@ reserved → submitted → settled
 6. On Klima `pending_index`: ledger `capture`, store tx hash, status `pending_index` (no certificate yet); also set `users.evaluations_remaining = 10`.
 7. On Klima failure: ledger `release`, reserved ↓, available ↑. User is not charged; **do not** reset evaluation quota.
 
-Dry-run / test retirements use a **staging environment** (Stripe test keys + Neon branch), not a staged flag in production.
+Dry-run / test retirements use the **staging environment** ([Phase S](#phase-s--staging)): Stripe test + Clerk development + Neon development + **fake** Klima retire calls. Production never fakes retirements.
 
-Service wallet: `KLIMA_PAYER_PRIVATE_KEY` only on the server. USDC on Base; no ETH required for relay.
+Service wallet: `KLIMA_PAYER_PRIVATE_KEY` only on the server (required for real retires; staging fake mode does not spend USDC). USDC on Base; no ETH required for relay.
 
 Timeouts: Cloud Run request timeout ≥ Klima wait (start at 60s, raise if needed). If we still hit limits, only then split into `202` + `GET /retirements/:id` polling — that is an explicit follow-up, not v1.
 
@@ -206,6 +207,38 @@ Timeouts: Cloud Run request timeout ≥ Klima wait (start at 60s, raise if neede
 - [x] Cloud Run in `europe-west1` (Belgium) or `europe-west9` (Paris): image from `apps/backend/Dockerfile` via GitHub Action (build/push Artifact Registry + deploy after migrate on `main`); secrets (`DATABASE_URL`, `CLERK_SECRET_KEY`, `STRIPE_SECRET_KEY`, `KLIMA_PAYER_PRIVATE_KEY`). See [hosting.md](hosting.md).
 - [x] Outbound HTTPS to `x402.klimalabs.com` and OpenRouter allowed.
 - [x] `GET /health` on the `*.run.app` URL.
+
+---
+
+## Phase S — Staging
+
+Shared demo / integration environment before (and while) building mobile. Staging spends **no** real Klima USDC; production remains the only place that retires on-chain.
+
+### S1. Staging API
+
+- [ ] **Done when:** a Cloud Run staging service serves the full HTTP contract against Neon development + Clerk development + Stripe test; `POST /retirements` completes the ledger/state machine with **fake** Klima retire (no x402 spend); production still refuses fake mode.
+
+- [ ] Neon **development** database (or dedicated branch), not production. Migrate via a staging workflow / GitHub Environment secret (e.g. `STAGING_DATABASE_URL` — already used by CI tests; prefer the same or a sibling branch).
+- [ ] Cloud Run service distinct from production (e.g. `savemyplanet-api-staging`) in the same Europe region. Bootstrap secrets/env separately.
+- [ ] **Deploy trigger:** on **push to the `staging` git branch**, CI → migrate staging Neon → build/push image → deploy the staging Cloud Run service (same CI → migrate → deploy order as production on `main`). Document workflows in [hosting.md](hosting.md). Pushes to `main` must not update staging.
+- [ ] **Clerk development** application (or Clerk “development” instance keys). Webhook endpoint points at the staging `*.run.app` URL.
+- [ ] **Stripe test** mode keys + test webhook secret; Checkout/PaymentIntent + funding webhook credit USD cents the same as production.
+- [ ] **Fake retirements:** env-gated Klima retire stub (e.g. `KLIMA_RETIRE_MODE=fake` or equivalent). Staging: `retire()` returns a synthetic settled (or pending_index) result with fake tx hash / certificate URL; ledger reserve → capture (or release on forced failure) still runs for real. Unset / non-fake: real x402 only. **Boot must fail** if fake mode is enabled on the production Cloud Run service (hard guard — do not rely on “just don’t set the flag”).
+- [ ] Discover/quote use live Klima **reads** (no spend). Fake mode applies only to **retire**.
+- [ ] `CORS_ORIGINS` allowlist includes the Expo web staging origin (S2). No `*`.
+- [ ] Record the staging base URL for the Expo app (`EXPO_PUBLIC_API_URL`).
+
+### S2. Expo web → staging API
+
+- [ ] **Done when:** an Expo **web** build is hosted (EAS Hosting or Cloudflare Pages) and talks only to the staging API URL; sign-in (Clerk), health, and at least evaluate → quote → confirm retire (fake) works in a browser.
+
+- [ ] Create `apps/mobile` early enough for web (can precede full native Phase M polish): Expo + TypeScript + Expo Router with web enabled.
+- [ ] Config: `EXPO_PUBLIC_API_URL` = staging Cloud Run URL. No Klima URLs or private keys in the client.
+- [ ] Clerk Expo/web with the **development** publishable key matching S1.
+- [ ] Export web (`npx expo export --platform web`) and deploy a preview URL; add that origin to staging `CORS_ORIGINS`.
+- [ ] Cold-start tolerance (spinner/retry) same as native later.
+
+Native Expo Go / EAS (Phase M) should default to the same staging API until a production mobile cutover is explicit.
 
 ---
 
@@ -237,13 +270,13 @@ After B10, treat this table as the mobile source of truth. Put shared types in `
 
 ## Phase M — Mobile
 
-Expo app talks **only** to the Cloud Run base URL (config: `EXPO_PUBLIC_API_URL`). No Klima URLs, no private keys, no wholesale prices.
+Expo app talks **only** to our backend (config: `EXPO_PUBLIC_API_URL`). Default target: **staging** API from [Phase S](#phase-s--staging). No Klima URLs, no private keys, no wholesale prices. Web preview may already exist from S2; Phase M completes native flows and hardens the same app.
 
 ### M1. App shell
 
-- [ ] **Done when:** Expo Go hits deployed `/health`.
+- [ ] **Done when:** Expo Go (and web if S2 landed) hits staging `/health`.
 
-- [ ] Expo + TypeScript, Expo Router.
+- [ ] Expo + TypeScript, Expo Router (reuse S2 app if present).
 - [ ] Auth storage (secure store) for JWT (managed by Clerk).
 - [ ] API client typed from the frozen contract.
 - [ ] Tolerate Cloud Run/Neon cold start on first request (retry/spinner, not a 3s hard fail).
@@ -288,10 +321,11 @@ Default: evaluation requires auth (simpler). Logged-out evaluate is a later cont
 
 ### M6. EAS
 
-- [ ] **Done when:** a preview APK/IPA (or Expo Go project) runs the full flow: evaluate → quote → confirm → certificate.
+- [ ] **Done when:** a preview APK/IPA (or Expo Go project) runs the full flow against **staging**: evaluate → quote → confirm → certificate (fake retire).
 
 - [ ] `eas.json` development + preview profiles.
-- [ ] Point preview builds at the Cloud Run URL.
+- [ ] Point preview builds at the **staging** Cloud Run URL (`EXPO_PUBLIC_API_URL`).
+- [ ] Keep / refresh the Expo **web** staging deploy from S2 as part of preview.
 - Store listing (Apple/Google) is **out of this plan** (paid accounts).
 
 ---
@@ -371,10 +405,12 @@ Does **not** block B8–B10 or API freeze. Goal: rate-limit **every** HTTP route
 - [x] B7b evaluation quota + derived beneficiaryAddress
 - [x] B7c persist OpenRouter evaluation costs (parallel OK; does not block API freeze)
 - [x] B8–B9 retire + history (reset quota on settle)
-- [ ] B10 Cloud Run + Neon + secrets
+- [ ] B10 Cloud Run + Neon + secrets (production Done when still open)
+- [ ] S1 Staging API (Clerk/Stripe/Neon development + fake retire)
+- [ ] S2 Expo web → staging API
 - [ ] *Freeze API table*
 - [ ] M1–M3 shell, auth (Clerk), evaluate (LLM)
 - [ ] M4–M5 retire UX (classes) + certificate
-- [ ] M6 EAS preview
+- [ ] M6 EAS preview (staging API + web)
 - [x] *Side:* T0–T1 endpoint test catch-up (parallel OK) — T0–T1 done
 - [x] *Side:* N1 network throttling (parallel OK)
