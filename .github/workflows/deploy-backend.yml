@@ -32,7 +32,6 @@ jobs:
     permissions:
       contents: read
       id-token: write
-      actions: write
 
     steps:
       - uses: actions/checkout@v4
@@ -59,16 +58,18 @@ jobs:
             echo "registry=${registry}"
             echo "tag_sha=${image}:${SHA}"
             echo "tag_latest=${image}:latest"
+            # workflow_run cannot write default-branch GHA cache; use Artifact Registry.
+            echo "cache_ref=${image}:buildcache"
           } >> "$GITHUB_OUTPUT"
 
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker "${{ steps.image.outputs.registry }}" --quiet
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: apps/backend/Dockerfile
@@ -76,8 +77,8 @@ jobs:
           tags: |
             ${{ steps.image.outputs.tag_sha }}
             ${{ steps.image.outputs.tag_latest }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=registry,ref=${{ steps.image.outputs.cache_ref }}
+          cache-to: type=registry,ref=${{ steps.image.outputs.cache_ref }},mode=max
 
       - name: Deploy to Cloud Run
         run: |
