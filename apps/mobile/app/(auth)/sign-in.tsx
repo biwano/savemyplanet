@@ -3,6 +3,7 @@ import { Link } from 'expo-router'
 import { useState } from 'react'
 import { Text } from 'react-native'
 
+import { BrandMark } from '@/components/BrandMark'
 import { Button, ErrorBanner, Field, Screen } from '@/components/ui'
 import { typography } from '@/lib/theme'
 
@@ -38,8 +39,8 @@ export default function SignInScreen() {
 
   return (
     <Screen>
-      <Text style={typography.brand}>ClearMyCarbon</Text>
-      <Text style={typography.muted}>Make peace with your footprint.</Text>
+      <BrandMark size="hero" />
+      <Text style={typography.muted}>Make peace with your carbon footprint.</Text>
       <ErrorBanner message={error} />
       <Field
         label="Email"

@@ -13,4 +13,16 @@ config.resolver.nodeModulesPaths = [
   path.resolve(workspaceRoot, 'node_modules'),
 ]
 
+const previousResolveRequest = config.resolver.resolveRequest
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  // @stripe/stripe-react-native has no web implementation; keep it out of web bundles.
+  if (platform === 'web' && moduleName === '@stripe/stripe-react-native') {
+    return { type: 'empty' }
+  }
+  if (previousResolveRequest) {
+    return previousResolveRequest(context, moduleName, platform)
+  }
+  return context.resolveRequest(context, moduleName, platform)
+}
+
 module.exports = config

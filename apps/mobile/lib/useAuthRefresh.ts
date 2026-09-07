@@ -14,7 +14,7 @@ export function useAuthRefresh() {
 
   const inFlight = useRef(false)
   /** After a failed load, skip focus auto-refresh until the user taps Retry. */
-  const pauseAutoRefresh = useRef(false)
+  const pauseAutoRefreshRef = useRef(false)
 
   const runExclusive = useCallback(async (fn: () => Promise<void>) => {
     if (inFlight.current) return
@@ -32,5 +32,5 @@ export function useAuthRefresh() {
     return token
   }, [])
 
-  return { runExclusive, requireToken, pauseAutoRefresh }
+  return { runExclusive, requireToken, pauseAutoRefreshRef }
 }

@@ -5,6 +5,9 @@
   "private": true,
   "dependencies": {
     "@clerk/expo": "4.6.5",
+    "@stripe/react-stripe-js": "6.9.0",
+    "@stripe/stripe-js": "9.15.0",
+    "@stripe/stripe-react-native": "0.64.0",
     "api-types": "workspace:*",
     "expo": "~57.0.20",
     "expo-constants": "~57.0.17",

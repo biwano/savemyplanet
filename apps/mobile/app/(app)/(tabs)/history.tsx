@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react'
 import { ActivityIndicator, Linking, Text, View } from 'react-native'
 
 import { Button, ErrorBanner, Screen } from '@/components/ui'
+import { publishClearedTonnesFromItems } from '@/components/HeaderTotalCleared'
 import { ApiError, api } from '@/lib/api'
 import { formatUsdCents } from '@/lib/format'
 import { colors, spacing, typography } from '@/lib/theme'
@@ -23,6 +24,7 @@ export default function HistoryScreen() {
       try {
         const res = await api.listRetirements(await requireToken())
         setItems(res.items)
+        publishClearedTonnesFromItems(res.items)
       } catch (err) {
         setError(
           err instanceof ApiError
@@ -54,7 +56,7 @@ export default function HistoryScreen() {
         <View style={{ gap: spacing.sm }}>
           <Text style={typography.muted}>Nothing cleared yet.</Text>
           <Button
-            label="Estimate an activity"
+            label="Estimate your carbon footprint"
             onPress={() => router.push('/(app)/evaluate')}
           />
           <Button

@@ -6,6 +6,7 @@ import { useEffect, type ReactNode } from 'react'
 import { ActivityIndicator, View } from 'react-native'
 
 import { getClerkPublishableKey } from '@/lib/config'
+import { StripeAppProvider } from '@/lib/stripe/StripeAppProvider'
 import { colors } from '@/lib/theme'
 
 export { ErrorBoundary } from 'expo-router'
@@ -50,12 +51,14 @@ export default function RootLayout() {
       publishableKey={getClerkPublishableKey()}
       tokenCache={tokenCache}
     >
-      <AuthGate>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(app)" />
-        </Stack>
-      </AuthGate>
+      <StripeAppProvider>
+        <AuthGate>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(auth)" />
+            <Stack.Screen name="(app)" />
+          </Stack>
+        </AuthGate>
+      </StripeAppProvider>
     </ClerkProvider>
   )
 }

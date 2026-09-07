@@ -4,7 +4,7 @@ Mobile UX for **ClearMyCarbon**. Product rules: [product.md](product.md). API su
 
 ## Principles
 
-1. **One primary job.** Open the app → optionally estimate an activity → fund if needed → clear → leave with a certificate. Everything else supports that loop.
+1. **One primary job.** Open the app → optionally estimate your carbon footprint → fund if needed → clear → leave with a certificate. Everything else supports that loop.
 2. **Evaluate freely, clear carefully.** Estimation is cheap and reversible in spirit (a suggestion). Clearing is permanent: show amount, marked-up cost, and certificate attribution, then require an explicit confirm.
 3. **No crypto theater.** Users never see wallets, chain IDs, wholesale Klima prices, or x402. Balance is fiat (USD). The certificate is the proof.
 4. **Suggestion, not decree.** The LLM estimate is editable. The user owns the final tonnage.
@@ -40,10 +40,10 @@ Tabs stay at three. Evaluate and Clear are **flows** launched from Home (or Hist
 
 **Content**
 
-- Product name: ClearMyCarbon (hero-level, not a nav eyebrow).
-- Tagline: **Make peace with your footprint.**
+- **Logo mark** + product name: ClearMyCarbon (hero-level, not a nav eyebrow). Same mark as the signed-in brand header.
+- Tagline: **Make peace with your carbon footprint.**
 - Primary CTA: Continue / Sign in (Clerk).
-- Secondary: Create account (same Clerk flow if separate).
+- Secondary: Create account (same Clerk flow if separate). Sign-up shows the same compact logo + name at the top (not a second hero treatment).
 
 **Interactions**
 
@@ -59,28 +59,32 @@ Tabs stay at three. Evaluate and Clear are **flows** launched from Home (or Hist
 
 ### 2. Home
 
-**Purpose.** Status at a glance and the two entry points: estimate an activity, or clear a known amount.
+**Purpose.** Status at a glance and the two entry points: estimate your carbon footprint, or clear a known amount.
 
 **Content**
 
-- Greeting / product name (light).
-- **Available balance** (USD).
-- Primary CTA: **Estimate an activity** (evaluate flow).
+- Brand (logo + ClearMyCarbon) lives in the **global header** — do not repeat the product name as a second hero on the body. Lifetime cleared tonnage also lives in that header (**My total carbon cleared** on the right) **only when the total is greater than zero** — not as a Home body block.
+- Optional light greeting or tagline under the header is fine; keep it quieter than Welcome.
+- Primary CTA: **Estimate your carbon footprint** (evaluate flow).
 - Secondary CTA: **Clear carbon** (clear flow with empty amount — user types tonnes).
-- If there is at least one settled clearing: a compact “Latest certificate” row (tonnes + open link). If `certificateUrl` is present, tap opens it; otherwise → **Clearing detail**.
-- If balance is $0 and user has never deposited: one short line under balance — “Add funds when you’re ready to clear” (not a blocking wall).
 
 **Interactions**
 
 - Tap Estimate → **Evaluate**.
 - Tap Clear → **Clear · Amount** (tonnes blank or last-used default none).
-- Tap Latest certificate → open `certificateUrl` when present; otherwise **Clearing detail**.
-- Pull to refresh → `GET /me` (balance).
+- Pull to refresh may refresh soft account state if needed; header total refreshes on navigation / focus via `GET /retirements`.
 - When evaluations remaining is **0**: Estimate CTA still opens **Evaluate**, which shows **Quota empty** (do not show the count on Home).
 
 **Empty / first-run**
 
-- Same layout. No fake stats. CTAs still work.
+- Same layout. No fake stats. CTAs still work. Header right is **hidden** until the first successful clear (total > 0).
+
+**Not on this screen**
+
+- History list, certificate rows, or a “Latest certificate” teaser — those belong on **History** (and Clear success). Lifetime cleared is only in the header.
+- Available balance (USD) — balance lives on **Account** (and Clear · Confirm when funding matters).
+- “Add funds when you’re ready to clear” nudge — that belongs with funding entry points (Account / Confirm), not Home.
+- API / health reachability status (no “API reachable” / staging probe card). Failures surface as errors on the load that failed, or via the offline banner — not a persistent diagnostics box.
 
 ---
 
@@ -366,13 +370,15 @@ Skip this screen when arriving from Evaluate result with a confirmed amount (sti
 ## Global chrome and states
 
 
-| Element      | Behavior                                                                                            |
-| ------------ | --------------------------------------------------------------------------------------------------- |
-| Tab bar      | Home · History · Account (signed-in only).                                                          |
-| Auth gate    | Any deep link into evaluate/clear without session → Welcome, then resume intent if practical.       |
-| Cold start   | First API call may spin longer; prefer retry with message over instant hard fail.                   |
-| Errors       | Inline on the screen that caused them; use `{ error }` copy when safe. Never show wholesale fields. |
-| Connectivity | Offline: disable primary submits; show a single banner.                                             |
+| Element       | Behavior                                                                                                                                                                                                 |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Brand header  | **Always** show the logo mark + **ClearMyCarbon** at the top when signed in (tab screens and stacked flows). Screen titles (“Estimate…”, “History”, etc.) stay in the body — they never replace the product name in the header. Back chevron may sit beside the brand on stacked screens. **Right side:** when cumulative cleared tonnes > 0, show compact **My total carbon cleared** + tonnes (sum of `settled` + `pending_index` from `GET /retirements`). **Hide entirely when the total is zero** (first-run / nothing cleared yet). Not a button; History is still the place to browse certificates. |
+| Logo          | One simple mark (leaf / cleared-air motif in brand forest green). Paired with the name in chrome and on Welcome. Mark alone only at tiny sizes (app icon / favicon). No crypto, globe-cliché overload, or decorative badges on the mark. |
+| Tab bar       | Home · History · Account (signed-in only). Each tab has a simple icon above the label (home / history / person). Active tint uses brand accent; inactive is muted. Selected tab sits on a soft light-green pill (`accentSoft`) behind icon + label — not a harsh full-width block. Add a little bottom padding (and respect the safe-area inset) so icons and labels are not flush with the screen edge. |
+| Auth gate     | Any deep link into evaluate/clear without session → Welcome, then resume intent if practical.                                                                                                            |
+| Cold start    | First API call may spin longer; prefer retry with message over instant hard fail.                                                                                                                        |
+| Errors        | Inline on the screen that caused them; use `{ error }` copy when safe. Never show wholesale fields.                                                                                                      |
+| Connectivity  | Offline: disable primary submits; show a single banner.                                                                                                                                                  |
 
 
 ---
@@ -473,8 +479,8 @@ Account → Sign out → Welcome
 
 | Plan item            | Screens / flows                                   |
 | -------------------- | ------------------------------------------------- |
-| M1 App shell         | Tabs, API client, cold-start handling             |
-| M2 Auth and account  | Welcome, Home balance, Account, Deposit           |
+| M1 App shell         | Tabs, brand header (logo + name + total cleared), API client, cold-start handling |
+| M2 Auth and account  | Welcome, Home CTAs, Account (balance), Deposit |
 | M3 Evaluate          | Evaluate, Result, Quota empty                     |
 | M4 Quote and confirm | Amount, Class, Confirm, Progress, deposit handoff |
 | M5 Certificate       | Certificate success, History, Detail              |

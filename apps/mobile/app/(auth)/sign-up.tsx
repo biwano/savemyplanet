@@ -3,6 +3,7 @@ import { Link } from 'expo-router'
 import { useState } from 'react'
 import { Text } from 'react-native'
 
+import { BrandMark } from '@/components/BrandMark'
 import { Button, ErrorBanner, Field, Screen } from '@/components/ui'
 import { typography } from '@/lib/theme'
 
@@ -55,6 +56,7 @@ export default function SignUpScreen() {
 
   return (
     <Screen>
+      <BrandMark />
       <Text style={typography.title}>Create account</Text>
       <Text style={typography.muted}>We’ll email you a verification code.</Text>
       <ErrorBanner message={error} />

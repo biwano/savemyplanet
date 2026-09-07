@@ -46,6 +46,7 @@ jobs:
         env:
           EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL }}
           EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ vars.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+          EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ vars.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
         run: |
           if [ -z "${EXPO_PUBLIC_API_URL}" ]; then
             echo "Set GitHub Environment staging variable EXPO_PUBLIC_API_URL" >&2
@@ -53,6 +54,10 @@ jobs:
           fi
           if [ -z "${EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY}" ]; then
             echo "Set GitHub Environment staging variable EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY" >&2
+            exit 1
+          fi
+          if [ -z "${EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY}" ]; then
+            echo "Set GitHub Environment staging variable EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY" >&2
             exit 1
           fi
           pnpm export:web

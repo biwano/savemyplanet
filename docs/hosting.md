@@ -88,6 +88,7 @@ GitHub Environment **`staging`** needs:
 | --- | --- | --- |
 | Variable | `EXPO_PUBLIC_API_URL` | Staging Cloud Run URL (same as table below) |
 | Variable | `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk **development** publishable key (`pk_test_…`) |
+| Variable | `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe **test** publishable key (`pk_test_…`) |
 | Secret | `CLOUDFLARE_API_TOKEN` | Token with **Edit Cloudflare Workers** (or Workers Scripts / Assets edit) |
 | Secret | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account id |
 

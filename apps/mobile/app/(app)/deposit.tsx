@@ -1,0 +1,235 @@
+import type { APIPresentmentCurrency } from 'api-types'
+import { useLocalSearchParams, useRouter } from 'expo-router'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Pressable, ScrollView, Text, View } from 'react-native'
+
+import { Button, ErrorBanner, Field } from '@/components/ui'
+import { ApiError, api } from '@/lib/api'
+import { hasStripePublishableKey } from '@/lib/config'
+import {
+  centsToMajorInput,
+  formatPresentmentMajor,
+  formatUsdCents,
+  parseMajorToCents,
+} from '@/lib/format'
+import { DepositCheckout } from '@/lib/stripe/DepositCheckout'
+import { colors, spacing, typography } from '@/lib/theme'
+import { useAuthRefresh } from '@/lib/useAuthRefresh'
+
+const MIN_CENTS = 500
+
+function parseParamCents(value: string | string[] | undefined): number | null {
+  if (typeof value !== 'string') return null
+  const n = Number(value)
+  if (!Number.isInteger(n) || n < 0) return null
+  return n
+}
+
+function parseCurrency(
+  value: string | string[] | undefined,
+): APIPresentmentCurrency {
+  if (typeof value === 'string' && value.toLowerCase() === 'eur') return 'eur'
+  return 'usd'
+}
+
+async function waitForBalanceIncrease(
+  requireToken: () => Promise<string>,
+  beforeAvailable: number,
+): Promise<number> {
+  for (let i = 0; i < 15; i++) {
+    await new Promise((r) => setTimeout(r, 1000))
+    const account = await api.account(await requireToken())
+    if (account.available > beforeAvailable) return account.available
+  }
+  const account = await api.account(await requireToken())
+  return account.available
+}
+
+export default function DepositScreen() {
+  const router = useRouter()
+  const params = useLocalSearchParams<{
+    amountCents?: string
+    shortfallCents?: string
+    currency?: string
+  }>()
+  const { requireToken } = useAuthRefresh()
+
+  const shortfallCents = parseParamCents(params.shortfallCents)
+  const initialCurrency = parseCurrency(params.currency)
+  const suggestedCents = useMemo(() => {
+    const fromParam = parseParamCents(params.amountCents)
+    if (fromParam != null) return Math.max(fromParam, MIN_CENTS)
+    if (shortfallCents != null) return Math.max(shortfallCents, MIN_CENTS)
+    return MIN_CENTS
+  }, [params.amountCents, shortfallCents])
+
+  const [currency, setCurrency] =
+    useState<APIPresentmentCurrency>(initialCurrency)
+  const [amountMajor, setAmountMajor] = useState(centsToMajorInput(suggestedCents))
+  const [clientSecret, setClientSecret] = useState<string | null>(null)
+  const [availableBefore, setAvailableBefore] = useState(0)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (leaveTimerRef.current != null) clearTimeout(leaveTimerRef.current)
+    }
+  }, [])
+
+  async function onStartPay() {
+    setError(null)
+    setSuccessMessage(null)
+    if (!hasStripePublishableKey()) {
+      setError('EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY is not set')
+      return
+    }
+    const cents = parseMajorToCents(amountMajor)
+    if (cents == null || cents < MIN_CENTS) {
+      setError(
+        `Minimum deposit is ${formatPresentmentMajor(5, currency)}`,
+      )
+      return
+    }
+    setBusy(true)
+    try {
+      const token = await requireToken()
+      const account = await api.account(token)
+      setAvailableBefore(account.available)
+      const res = await api.deposit(token, { amount: cents, currency })
+      setClientSecret(res.clientSecret)
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Could not start deposit',
+      )
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function onPaymentSuccess() {
+    setBusy(true)
+    setError(null)
+    try {
+      const afterAvailable = await waitForBalanceIncrease(
+        requireToken,
+        availableBefore,
+      )
+      const added = afterAvailable - availableBefore
+      setSuccessMessage(
+        added > 0
+          ? `${formatUsdCents(added)} added`
+          : 'Payment received — balance will update shortly',
+      )
+      setClientSecret(null)
+      if (leaveTimerRef.current != null) clearTimeout(leaveTimerRef.current)
+      leaveTimerRef.current = setTimeout(() => {
+        leaveTimerRef.current = null
+        if (router.canGoBack()) router.back()
+        else router.replace('/(app)/(tabs)/account')
+      }, 1200)
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Payment succeeded but balance refresh failed',
+      )
+      setClientSecret(null)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <ScrollView
+      style={{ flex: 1, backgroundColor: colors.bg }}
+      contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}
+      keyboardShouldPersistTaps="handled"
+    >
+      <Text style={typography.title}>Add funds</Text>
+      <Text style={typography.muted}>
+        Pay in USD or EUR. Your balance is always held in USD.
+      </Text>
+
+      {shortfallCents != null && shortfallCents > 0 ? (
+        <Text style={typography.body}>
+          Needed for this clearing: {formatUsdCents(shortfallCents)}
+        </Text>
+      ) : null}
+
+      <ErrorBanner message={error} />
+      {successMessage ? (
+        <Text style={typography.body}>{successMessage}</Text>
+      ) : null}
+
+      {clientSecret ? (
+        <DepositCheckout
+          clientSecret={clientSecret}
+          onSuccess={() => void onPaymentSuccess()}
+          onCancel={() => setClientSecret(null)}
+        />
+      ) : (
+        <>
+          <Text style={typography.label}>Currency</Text>
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            {(['usd', 'eur'] as const).map((c) => {
+              const selected = currency === c
+              return (
+                <Pressable
+                  key={c}
+                  accessibilityRole="button"
+                  onPress={() => setCurrency(c)}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 12,
+                    alignItems: 'center',
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: selected ? colors.accent : colors.line,
+                    backgroundColor: selected
+                      ? colors.accentSoft
+                      : colors.surface,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontWeight: '600',
+                      color: selected ? colors.accent : colors.ink,
+                    }}
+                  >
+                    {c.toUpperCase()}
+                  </Text>
+                </Pressable>
+              )
+            })}
+          </View>
+
+          <Field
+            label="Amount"
+            value={amountMajor}
+            onChangeText={setAmountMajor}
+            keyboardType="decimal-pad"
+            placeholder="5.00"
+          />
+          <Text style={typography.muted}>
+            At least {formatPresentmentMajor(5, currency)}
+          </Text>
+
+          <Button
+            label={busy ? 'Starting…' : 'Pay'}
+            onPress={() => void onStartPay()}
+            disabled={busy || !!successMessage}
+          />
+        </>
+      )}
+    </ScrollView>
+  )
+}

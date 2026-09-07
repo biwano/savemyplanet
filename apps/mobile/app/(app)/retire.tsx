@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { Linking, Text, View } from 'react-native'
 
 import { Button, ErrorBanner, Field, Screen } from '@/components/ui'
+import { invalidateClearedTonnes } from '@/components/HeaderTotalCleared'
 import { ApiError, api } from '@/lib/api'
 import { formatUsdCents } from '@/lib/format'
 import { colors, spacing, typography } from '@/lib/theme'
@@ -62,6 +63,7 @@ export default function RetireScreen() {
         ...(message.trim() ? { retirementMessage: message.trim() } : {}),
       })
       setRetirement(result)
+      invalidateClearedTonnes()
     } catch (err) {
       const code = err instanceof ApiError ? err.message : null
       if (code === 'insufficient_funds') {

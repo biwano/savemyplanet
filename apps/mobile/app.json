@@ -37,6 +37,13 @@
           "resizeMode": "contain",
           "backgroundColor": "#f3f6f2"
         }
+      ],
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.clearmycarbon.app",
+          "enableGooglePay": false
+        }
       ]
     ],
     "experiments": {

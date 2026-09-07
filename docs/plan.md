@@ -285,11 +285,10 @@ Expo app talks **only** to our backend (config: `EXPO_PUBLIC_API_URL`). Default 
 
 ### M2. Auth and account
 
-- [ ] **Done when:** a user can sign in and see balance after an admin credit.
+- [x] **Done when:** a user can sign in and see balance after an admin credit.
 
-- [ ] register, login, logout via Clerk Expo SDK.
-- [ ] Home: available balance, reserved if any; show `evaluationsRemaining` from `/me`.
-- [ ] Deposit: Stripe payment sheet.
+- [x] register, login, logout via Clerk Expo SDK (Welcome / Sign-in per [ux.md](ux.md)).
+- [x] Home, Account, and Deposit screens per [ux.md](ux.md) (Home: estimate/clear CTAs, no balance or evaluations count; Account: available balance + name edit + Add funds + sign out; Deposit via Stripe PaymentSheet / Elements).
 
 ### M3. Evaluate
 
@@ -529,7 +528,8 @@ EIP-3009 / Klima `salt` is **out of scope** to “fix”: we do not mint nonces;
 - [ ] S2 Expo web → staging API
 - [ ] *Freeze API table*
 - [x] M1 app shell
-- [ ] M2–M3 auth (Clerk), evaluate (LLM)
+- [x] M2 auth (Clerk) + account / deposit
+- [ ] M3 evaluate (LLM)
 - [ ] M4–M5 retire UX (classes) + certificate
 - [ ] M6 EAS preview (staging API + web)
 - [x] *Side:* T0–T1 endpoint test catch-up (parallel OK) — T0–T1 done

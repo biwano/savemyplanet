@@ -1,7 +1,11 @@
 import { Tabs } from 'expo-router'
-import { Text } from 'react-native'
+import { SymbolView, type AndroidSymbol, type SFSymbol } from 'expo-symbols'
+import { type ColorValue, Text } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
-import { colors } from '@/lib/theme'
+import { BrandMark } from '@/components/BrandMark'
+import { HeaderTotalCleared } from '@/components/HeaderTotalCleared'
+import { colors, spacing } from '@/lib/theme'
 
 function TabLabel({
   label,
@@ -14,6 +18,7 @@ function TabLabel({
     <Text
       style={{
         fontSize: 12,
+        lineHeight: 16,
         fontWeight: focused ? '700' : '500',
         color: focused ? colors.accent : colors.muted,
       }}
@@ -23,18 +28,64 @@ function TabLabel({
   )
 }
 
+function TabIcon({
+  focused,
+  color,
+  size,
+  ios,
+  iosFocused,
+  material,
+}: {
+  focused: boolean
+  color: ColorValue
+  size: number
+  ios: SFSymbol
+  iosFocused: SFSymbol
+  material: AndroidSymbol
+}) {
+  return (
+    <SymbolView
+      name={{
+        ios: focused ? iosFocused : ios,
+        android: material,
+        web: material,
+      }}
+      size={size}
+      tintColor={color}
+    />
+  )
+}
+
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets()
+  const topPad = spacing.sm
+  const bottomPad = Math.max(insets.bottom, spacing.md)
+  // Icon (~28) + label (~16) + item padding — must not be eaten by bar padding.
+  const innerHeight = 56
+
   return (
     <Tabs
       screenOptions={{
         headerStyle: { backgroundColor: colors.bg },
         headerShadowVisible: false,
         headerTintColor: colors.ink,
+        headerTitle: '',
+        headerLeft: () => <BrandMark />,
+        headerRight: () => <HeaderTotalCleared />,
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.muted,
+        tabBarActiveBackgroundColor: colors.accentSoft,
+        tabBarItemStyle: {
+          borderRadius: 12,
+          marginHorizontal: spacing.xs,
+          overflow: 'hidden',
+        },
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.line,
+          height: innerHeight + topPad + bottomPad,
+          paddingTop: topPad,
+          paddingBottom: bottomPad,
         },
       }}
     >
@@ -45,6 +96,16 @@ export default function TabsLayout() {
           tabBarLabel: ({ focused }) => (
             <TabLabel label="Home" focused={focused} />
           ),
+          tabBarIcon: ({ focused, color, size }) => (
+            <TabIcon
+              focused={focused}
+              color={color}
+              size={size}
+              ios="house"
+              iosFocused="house.fill"
+              material="home"
+            />
+          ),
         }}
       />
       <Tabs.Screen
@@ -54,6 +115,16 @@ export default function TabsLayout() {
           tabBarLabel: ({ focused }) => (
             <TabLabel label="History" focused={focused} />
           ),
+          tabBarIcon: ({ focused, color, size }) => (
+            <TabIcon
+              focused={focused}
+              color={color}
+              size={size}
+              ios="clock"
+              iosFocused="clock.fill"
+              material="history"
+            />
+          ),
         }}
       />
       <Tabs.Screen
@@ -62,6 +133,16 @@ export default function TabsLayout() {
           title: 'Account',
           tabBarLabel: ({ focused }) => (
             <TabLabel label="Account" focused={focused} />
+          ),
+          tabBarIcon: ({ focused, color, size }) => (
+            <TabIcon
+              focused={focused}
+              color={color}
+              size={size}
+              ios="person.crop.circle"
+              iosFocused="person.crop.circle.fill"
+              material="person"
+            />
           ),
         }}
       />
