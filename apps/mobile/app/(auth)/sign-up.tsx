@@ -56,9 +56,7 @@ export default function SignUpScreen() {
   return (
     <Screen>
       <Text style={typography.title}>Create account</Text>
-      <Text style={typography.muted}>
-        Clerk development instance — email verification required.
-      </Text>
+      <Text style={typography.muted}>We’ll email you a verification code.</Text>
       <ErrorBanner message={error} />
       {!pendingVerification ? (
         <>

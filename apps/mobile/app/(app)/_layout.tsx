@@ -1,18 +1,19 @@
 import { Stack } from 'expo-router'
 
+import { colors } from '@/lib/theme'
+
 export default function AppLayout() {
   return (
     <Stack
       screenOptions={{
-        headerStyle: { backgroundColor: '#f3f6f2' },
+        headerStyle: { backgroundColor: colors.bg },
         headerShadowVisible: false,
-        headerTintColor: '#14201a',
+        headerTintColor: colors.ink,
       }}
     >
-      <Stack.Screen name="index" options={{ title: 'ClearMyCarbon' }} />
-      <Stack.Screen name="evaluate" options={{ title: 'Evaluate' }} />
-      <Stack.Screen name="retire" options={{ title: 'Retire' }} />
-      <Stack.Screen name="history" options={{ title: 'History' }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="evaluate" options={{ title: 'Estimate' }} />
+      <Stack.Screen name="retire" options={{ title: 'Clear carbon' }} />
     </Stack>
   )
 }

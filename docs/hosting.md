@@ -101,7 +101,7 @@ Local: copy [`apps/mobile/.env.example`](../apps/mobile/.env.example) → `apps/
 | --- | --- |
 | Staging API | `https://savemyplanet-api-staging-7566378171.europe-west1.run.app` |
 | Expo `EXPO_PUBLIC_API_URL` | same as staging API |
-| Expo web origin (`CORS_ORIGINS`) | `https://staging.app.clearmycarbon.com` |
+| Expo web origin (`CORS_ORIGINS`) | `https://clearmycarbon-staging.bruno-ilponse.workers.dev`, `http://localhost:8081` (optional custom domain `https://staging.app.clearmycarbon.com`) |
 | Production API | `https://savemyplanet-api-7566378171.europe-west1.run.app` |
 
 ### Staging bootstrap (one-time)
@@ -169,13 +169,13 @@ gcloud run deploy savemyplanet-api-staging \
   --timeout=60 \
   --service-account=savemyplanet-api-staging@green-jet-454713-i7.iam.gserviceaccount.com \
   --set-secrets=DATABASE_URL=STAGING_DATABASE_URL:latest,CLERK_PUBLISHABLE_KEY=STAGING_CLERK_PUBLISHABLE_KEY:latest,CLERK_SECRET_KEY=STAGING_CLERK_SECRET_KEY:latest,STRIPE_SECRET_KEY=STAGING_STRIPE_SECRET_KEY:latest,OPENROUTER_API_KEY=OPENROUTER_API_KEY:latest,CLERK_WEBHOOK_SIGNING_SECRET=STAGING_CLERK_WEBHOOK_SIGNING_SECRET:latest,STRIPE_WEBHOOK_SECRET=STAGING_STRIPE_WEBHOOK_SECRET:latest,ADMIN_API_KEY=STAGING_ADMIN_API_KEY:latest \
-  --set-env-vars=NODE_ENV=production,KLIMA_RETIRE_MODE=fake,CORS_ORIGINS=https://staging.app.clearmycarbon.com
+  --set-env-vars='^@^NODE_ENV=production@KLIMA_RETIRE_MODE=fake@CORS_ORIGINS=https://clearmycarbon-staging.bruno-ilponse.workers.dev,http://localhost:8081,https://staging.app.clearmycarbon.com'
 ```
 
 Notes:
 
 - Omit `KLIMA_PAYER_PRIVATE_KEY` on staging while fake retire is on (real x402 is not used).
-- `CORS_ORIGINS` is an allowlist (no `*`). Staging Expo web: `https://staging.app.clearmycarbon.com`.
+- `CORS_ORIGINS` is an allowlist (no `*`). Staging Expo web: `https://clearmycarbon-staging.bruno-ilponse.workers.dev` (Workers) plus `http://localhost:8081` for local Expo web against staging API. Optional: `https://staging.app.clearmycarbon.com`. Origins have no trailing slash (browser `Origin` header).
 - First bootstrap may use `backend:latest` if `staging-latest` does not exist yet; subsequent pushes to `staging` publish `staging-*` tags.
 - If staging was already bootstrapped with shared Clerk/Stripe/admin secrets or the default Compute SA, re-run the deploy above after creating the `STAGING_*` secrets and staging runtime SA.
 

@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native'
 
-/** Staging demo palette — forest / carbon, not purple-default AI chrome. */
+/** Forest / carbon palette — not purple-default AI chrome. */
 export const colors = {
   bg: '#f3f6f2',
   surface: '#ffffff',

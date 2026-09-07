@@ -29,7 +29,7 @@ function AuthGate({ children }: { children: ReactNode }) {
     if (!isSignedIn && !inAuthGroup) {
       router.replace('/(auth)/sign-in')
     } else if (isSignedIn && inAuthGroup) {
-      router.replace('/(app)')
+      router.replace('/(app)/(tabs)')
     }
   }, [isLoaded, isSignedIn, segments, router])
 

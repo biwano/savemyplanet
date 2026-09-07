@@ -15,7 +15,7 @@ export default function RetireScreen() {
   const [tonnes, setTonnes] = useState(
     typeof params.tonnes === 'string' ? params.tonnes : '0.1',
   )
-  const [beneficiaryString, setBeneficiaryString] = useState('ClearMyCarbon staging')
+  const [beneficiaryString, setBeneficiaryString] = useState('ClearMyCarbon')
   const [message, setMessage] = useState('')
   const [quote, setQuote] = useState<APIQuote | null>(null)
   const [retirement, setRetirement] = useState<APIRetirement | null>(null)
@@ -65,7 +65,7 @@ export default function RetireScreen() {
     } catch (err) {
       const code = err instanceof ApiError ? err.message : null
       if (code === 'insufficient_funds') {
-        setError('Insufficient funds — credit the staging account (admin) or deposit via Stripe.')
+        setError('Insufficient funds — add money to your account, then try again.')
       } else {
         setError(
           err instanceof ApiError
@@ -84,7 +84,7 @@ export default function RetireScreen() {
     <Screen>
       <Text style={typography.title}>Quote & retire</Text>
       <Text style={typography.muted}>
-        Shows ClearMyCarbon price only (marked-up). Staging uses fake Klima retire.
+        Shows the price you pay. Confirm before clearing — this cannot be undone.
       </Text>
       <ErrorBanner message={error} />
 
@@ -163,7 +163,7 @@ export default function RetireScreen() {
             />
           ) : (
             <Text style={typography.muted}>
-              Certificate URL appears when status is settled (fake may stay pending_index).
+              Certificate URL appears when status is settled.
             </Text>
           )}
         </View>

@@ -29,6 +29,16 @@ export type APIEvaluation = {
   evaluationsRemaining: number
 }
 
+export type APICarbonClass = {
+  carbonClass: string
+  name: string
+  description?: string
+}
+
+export type APIClassesResponse = {
+  classes: APICarbonClass[]
+}
+
 export type APIQuote = {
   quoteId: string
   carbonClass: string
@@ -36,6 +46,18 @@ export type APIQuote = {
   userTotal: number
   currency: 'USD'
   expiresAt: string
+}
+
+export type APIPresentmentCurrency = 'usd' | 'eur'
+
+export type APIDepositRequest = {
+  amount: number
+  currency: APIPresentmentCurrency
+}
+
+export type APIDepositResponse = {
+  clientSecret: string
+  paymentIntentId: string
 }
 
 export type APIRetirementStatus =
@@ -59,6 +81,10 @@ export type APIRetirementDetail = {
   userTotal: number
   certificateUrl?: string | null
   txHash?: string | null
+}
+
+export type APIRetirementsListResponse = {
+  items: APIRetirementDetail[]
 }
 
 export type APIErrorBody = {

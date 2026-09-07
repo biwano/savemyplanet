@@ -15,5 +15,5 @@ export default function Index() {
     )
   }
 
-  return <Redirect href={isSignedIn ? '/(app)' : '/(auth)/sign-in'} />
+  return <Redirect href={isSignedIn ? '/(app)/(tabs)' : '/(auth)/sign-in'} />
 }

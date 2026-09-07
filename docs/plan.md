@@ -119,8 +119,8 @@ Vendor or install `@klimadao/x402-retire` / `klima-retire.ts`. Wrap it:
 
 `POST /quotes`
 
-1. Validate tonnes (≥ 0.001; Puro whole-tonne rules if the selected credit requires it).
-2. Backend picks carbon class (discover + cap).
+1. Validate tonnes (≥ 0.001). Never quote or retire whole-tonne-only classes (e.g. Toucan Puro) — filter them out of discover/`GET /classes` per [product.md](product.md).
+2. Backend picks carbon class (discover + cap) from the allowed set.
 3. x402 `/quote` → `klima_total`.
 4. `user_total = klima_total * (1 + MARKUP_BPS / 10000)` (document rounding: round **up** in the user’s favor to cents so we never under-charge).
 5. Persist quote with short TTL (e.g. 10 minutes). Return **only** user-facing fields: tonnes, `user_total`, currency (`USD`), expires_at, quote_id. No `klima_total`, no `humanSummary` from Klima.
@@ -237,7 +237,7 @@ Shared demo / integration environment before (and while) building mobile. Stagin
 - [x] Config: `EXPO_PUBLIC_API_URL` = staging Cloud Run URL. No Klima URLs or private keys in the client.
 - [x] Clerk Expo/web with the **development** publishable key matching S1.
 - [x] **Deploy trigger:** on **push to the `staging` git branch**, export web (`npx expo export --platform web`) and deploy via **`wrangler deploy`** to Worker **`clearmycarbon-staging`** (same branch that deploys the staging API). Document the workflow in [hosting.md](hosting.md). Pushes to `main` must not update the staging web deploy.
-- [ ] Add the Cloudflare Worker HTTPS origin to staging `CORS_ORIGINS` (see [hosting.md](hosting.md)). Confirm after first `*.workers.dev` URL / custom domain is known.
+- [x] Add the Cloudflare Worker HTTPS origin to staging `CORS_ORIGINS` (see [hosting.md](hosting.md)). Confirm after first `*.workers.dev` URL / custom domain is known.
 - [x] Cold-start tolerance (spinner/retry) same as native later.
 
 Native Expo Go / EAS (Phase M) should default to the same staging API until a production mobile cutover is explicit.
@@ -272,16 +272,16 @@ After B10, treat this table as the mobile source of truth. Put shared types in `
 
 ## Phase M — Mobile
 
-Expo app talks **only** to our backend (config: `EXPO_PUBLIC_API_URL`). Default target: **staging** API from [Phase S](#phase-s--staging). No Klima URLs, no private keys, no wholesale prices. Web preview may already exist from S2; Phase M completes native flows and hardens the same app.
+Expo app talks **only** to our backend (config: `EXPO_PUBLIC_API_URL`). Default target: **staging** API from [Phase S](#phase-s--staging). No Klima URLs, no private keys, no wholesale prices. Web preview may already exist from S2; Phase M completes native flows and hardens the same app. Screens and flows: [ux.md](ux.md).
 
 ### M1. App shell
 
-- [ ] **Done when:** Expo Go (and web if S2 landed) hits staging `/health`.
+- [x] **Done when:** Expo Go (and web if S2 landed) hits staging `/health`.
 
-- [ ] Expo + TypeScript, Expo Router (reuse S2 app if present).
-- [ ] Auth storage (secure store) for JWT (managed by Clerk).
-- [ ] API client typed from the frozen contract.
-- [ ] Tolerate Cloud Run/Neon cold start on first request (retry/spinner, not a 3s hard fail).
+- [x] Expo + TypeScript, Expo Router (reuse S2 app if present).
+- [x] Auth storage (secure store) for JWT (managed by Clerk).
+- [x] API client typed from the frozen contract.
+- [x] Tolerate Cloud Run/Neon cold start on first request (retry/spinner, not a 3s hard fail).
 
 ### M2. Auth and account
 
@@ -528,7 +528,8 @@ EIP-3009 / Klima `salt` is **out of scope** to “fix”: we do not mint nonces;
 - [ ] S1 Staging API (Clerk/Stripe/Neon development + fake retire)
 - [ ] S2 Expo web → staging API
 - [ ] *Freeze API table*
-- [ ] M1–M3 shell, auth (Clerk), evaluate (LLM)
+- [x] M1 app shell
+- [ ] M2–M3 auth (Clerk), evaluate (LLM)
 - [ ] M4–M5 retire UX (classes) + certificate
 - [ ] M6 EAS preview (staging API + web)
 - [x] *Side:* T0–T1 endpoint test catch-up (parallel OK) — T0–T1 done

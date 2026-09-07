@@ -1,6 +1,5 @@
-import { useAuth } from '@clerk/expo'
 import type { APIRetirementDetail } from 'api-types'
-import { useFocusEffect } from 'expo-router'
+import { useFocusEffect, useRouter } from 'expo-router'
 import { useCallback, useState } from 'react'
 import { ActivityIndicator, Linking, Text, View } from 'react-native'
 
@@ -8,33 +7,35 @@ import { Button, ErrorBanner, Screen } from '@/components/ui'
 import { ApiError, api } from '@/lib/api'
 import { formatUsdCents } from '@/lib/format'
 import { colors, spacing, typography } from '@/lib/theme'
+import { useAuthRefresh } from '@/lib/useAuthRefresh'
 
 export default function HistoryScreen() {
-  const { getToken } = useAuth()
+  const router = useRouter()
+  const { runExclusive, requireToken } = useAuthRefresh()
   const [items, setItems] = useState<APIRetirementDetail[]>([])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const token = await getToken()
-      if (!token) throw new Error('Missing session token')
-      const res = await api.listRetirements(token)
-      setItems(res.items)
-    } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : err instanceof Error
+    await runExclusive(async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const res = await api.listRetirements(await requireToken())
+        setItems(res.items)
+      } catch (err) {
+        setError(
+          err instanceof ApiError
             ? err.message
-            : 'Failed to load history',
-      )
-    } finally {
-      setLoading(false)
-    }
-  }, [getToken])
+            : err instanceof Error
+              ? err.message
+              : 'Failed to load history',
+        )
+      } finally {
+        setLoading(false)
+      }
+    })
+  }, [runExclusive, requireToken])
 
   useFocusEffect(
     useCallback(() => {
@@ -50,7 +51,18 @@ export default function HistoryScreen() {
       {loading ? (
         <ActivityIndicator color={colors.accent} />
       ) : items.length === 0 ? (
-        <Text style={typography.muted}>No retirements yet.</Text>
+        <View style={{ gap: spacing.sm }}>
+          <Text style={typography.muted}>Nothing cleared yet.</Text>
+          <Button
+            label="Estimate an activity"
+            onPress={() => router.push('/(app)/evaluate')}
+          />
+          <Button
+            label="Clear carbon"
+            onPress={() => router.push('/(app)/retire')}
+            variant="secondary"
+          />
+        </View>
       ) : (
         items.map((item) => (
           <View

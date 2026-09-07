@@ -1,4 +1,8 @@
 import type {
+  APIAccountBalance,
+  APIClassesResponse,
+  APIDepositRequest,
+  APIDepositResponse,
   APIErrorBody,
   APIEvaluation,
   APIHealthResponse,
@@ -6,6 +10,7 @@ import type {
   APIQuote,
   APIRetirement,
   APIRetirementDetail,
+  APIRetirementsListResponse,
 } from 'api-types'
 
 import { getApiUrl } from './config'
@@ -36,7 +41,8 @@ function sleep(ms: number) {
 
 function isRetryable(status: number, err: unknown): boolean {
   if (err instanceof TypeError) return true // network / failed fetch
-  return status === 408 || status === 429 || status >= 500
+  // Never retry 429 — retries amplify rate_limit_exceeded.
+  return status === 408 || status >= 500
 }
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -94,8 +100,18 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 export const api = {
   health: () => request<APIHealthResponse>('/health', { retries: 3 }),
 
-  me: (token: string) =>
-    request<APIMeResponse>('/me', { token }),
+  me: (token: string) => request<APIMeResponse>('/me', { token }),
+
+  account: (token: string) =>
+    request<APIAccountBalance>('/account', { token }),
+
+  deposit: (token: string, body: APIDepositRequest) =>
+    request<APIDepositResponse>('/account/deposit', {
+      method: 'POST',
+      token,
+      body,
+      retries: 1,
+    }),
 
   evaluate: (token: string, activity: string) =>
     request<APIEvaluation>('/evaluations', {
@@ -104,6 +120,9 @@ export const api = {
       body: { activity },
       retries: 1,
     }),
+
+  classes: (token: string) =>
+    request<APIClassesResponse>('/classes', { token }),
 
   createQuote: (token: string, tonnes: number, carbonClass?: string) =>
     request<APIQuote>('/quotes', {
@@ -129,5 +148,8 @@ export const api = {
     }),
 
   listRetirements: (token: string) =>
-    request<{ items: APIRetirementDetail[] }>('/retirements', { token }),
+    request<APIRetirementsListResponse>('/retirements', { token }),
+
+  getRetirement: (token: string, id: string) =>
+    request<APIRetirementDetail>(`/retirements/${id}`, { token }),
 }

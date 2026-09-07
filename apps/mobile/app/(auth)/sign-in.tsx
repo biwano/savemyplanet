@@ -39,9 +39,7 @@ export default function SignInScreen() {
   return (
     <Screen>
       <Text style={typography.brand}>ClearMyCarbon</Text>
-      <Text style={typography.muted}>
-        Staging demo — sign in with your Clerk development account.
-      </Text>
+      <Text style={typography.muted}>Make peace with your footprint.</Text>
       <ErrorBanner message={error} />
       <Field
         label="Email"

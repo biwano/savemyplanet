@@ -43,9 +43,9 @@ export default function EvaluateScreen() {
 
   return (
     <Screen>
-      <Text style={typography.title}>Evaluate activity</Text>
+      <Text style={typography.title}>Estimate carbon emissions</Text>
       <Text style={typography.muted}>
-        Describe what you did. The backend LLM suggests tCO₂e — no funding required.
+        Describe what you did. The backend suggests tCO₂e — no funding required.
       </Text>
       <ErrorBanner message={error} />
       <Field
@@ -69,7 +69,7 @@ export default function EvaluateScreen() {
             Evaluations remaining: {result.evaluationsRemaining}
           </Text>
           <Button
-            label="Use this amount to retire"
+            label="Use this amount to clear"
             onPress={() =>
               router.push({
                 pathname: '/(app)/retire',
