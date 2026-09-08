@@ -6,7 +6,7 @@ Mobile UX for **ClearMyCarbon**. Product rules: [product.md](product.md). API su
 
 1. **One primary job.** Open the app → optionally estimate your carbon footprint → fund if needed → clear → leave with a certificate. Everything else supports that loop.
 2. **Evaluate freely, clear carefully.** Estimation is cheap and reversible in spirit (a suggestion). Clearing is permanent: show amount, marked-up cost, and certificate attribution, then require an explicit confirm.
-3. **No crypto theater.** Users never see wallets, chain IDs, wholesale Klima prices, or x402. Balance is fiat (USD). The certificate is the proof.
+3. **No crypto theater.** Users never see wallets, chain IDs, wholesale Klima prices, or x402. Funds are fiat (USD). The certificate is the proof.
 4. **Suggestion, not decree.** The LLM estimate is editable. The user owns the final tonnage.
 5. **Fund only when it matters.** Evaluation works with a zero balance. Prompt to deposit at the moment clearing would fail, not before.
 6. **Quota motivates without nagging.** Show remaining evaluations on the Evaluate flow. At zero, the path forward is clear (which resets to 10), not “buy more evaluations.”
@@ -22,7 +22,7 @@ Signed out
 Signed in (tab shell)
   ├─ Home
   ├─ History
-  └─ Balance
+  └─ Funds
         └─ Deposit (modal / stack)
   ├─ Profile (from header icon; tab bar stays visible)
   └─ Evaluate (early: activity input / quota empty; tab bar stays visible)
@@ -32,7 +32,7 @@ Flows (pushed stacks, tab bar hidden)
   └─ Clear: amount → class → confirm → progress → certificate
 ```
 
-Tabs stay at three (**Home · History · Balance**). Profile and early Evaluate are still **flows** launched from Home / header — not permanent tab buttons — but they keep the **tab bar** so the user can jump to Home, History, or Balance. Once Evaluate reaches **result** (or the user continues into Clear / Deposit), hide the tab bar so the clearing tunnel stays focused.
+Tabs stay at three (**Home · History · Funds**). Profile and early Evaluate are still **flows** launched from Home / header — not permanent tab buttons — but they keep the **tab bar** so the user can jump to Home, History, or Funds. Once Evaluate reaches **result** (or the user continues into Clear / Deposit), hide the tab bar so the clearing tunnel stays focused.
 
 ---
 
@@ -59,7 +59,7 @@ Tabs stay at three (**Home · History · Balance**). Profile and early Evaluate 
 
 **Not on this screen**
 
-- Balance, classes, sample certificates, feature grids, or “how it works” carousels.
+- Funds, classes, sample certificates, feature grids, or “how it works” carousels.
 
 ---
 
@@ -114,8 +114,8 @@ Tabs stay at three (**Home · History · Balance**). Profile and early Evaluate 
 **Not on this screen**
 
 - History list, certificate rows, or a “Latest certificate” teaser — those belong on **History** (and Clear success). Lifetime cleared is only in the header.
-- Available balance (USD) — balance lives on **Balance** (and Clear · Confirm when funding matters).
-- “Add funds when you’re ready to clear” nudge — that belongs with funding entry points (Balance / Confirm), not Home.
+- Available balance (USD) — funds live on **Funds** (and Clear · Confirm when funding matters).
+- “Add funds when you’re ready to clear” nudge — that belongs with funding entry points (Funds / Confirm), not Home.
 - Profile name or sign-out — those live on **Profile** (header icon).
 - API / health reachability status (no “API reachable” / staging probe card). Failures surface as errors on the load that failed, or via the offline banner — not a persistent diagnostics box.
 
@@ -200,7 +200,7 @@ Tabs stay at three (**Home · History · Balance**). Profile and early Evaluate 
 - Tonnes input (decimal). Hint: minimum 0.001 tCO₂e.
 - Optional: “Not sure?” link → Evaluate.
 - Primary: **Next**.
-- Balance reminder only if useful: available USD (not a hard gate yet — gate at confirm).
+- Funds reminder only if useful: available USD (not a hard gate yet — gate at confirm).
 
 **Interactions**
 
@@ -253,7 +253,7 @@ Skip this screen when arriving from Evaluate result with a confirmed amount (sti
   - **Name on certificate** (`beneficiaryString`) — text field, required. Prefill with Clerk first + last name when set, else email local-part; user can edit.
   - Optional **message** (`retirementMessage`). When arriving from Evaluate, prefill with the activity text the user submitted; otherwise empty. Editable.
   - No wallet field. Do not show `beneficiaryAddress` unless we later add an advanced “technical details” disclosure; default is hide.
-- Balance line: Available $X · After clearing $Y (or “Need $Z more”).
+- Funds line: Available $X · After clearing $Y (or “Need $Z more”).
 - Warning: Clearing cannot be undone. The certificate attribution is permanent.
 - Primary: **Confirm and clear** (destructive-weight styling, not casual).
 - Secondary: Cancel / Back.
@@ -354,14 +354,13 @@ Skip this screen when arriving from Evaluate result with a confirmed amount (sti
 
 ---
 
-### 13. Balance
+### 13. Funds
 
 **Purpose.** Funded USD balance and funding entry only. Not a profile/settings screen.
 
 **Content**
 
-- Title: Balance.
-- Balance amount (USD), prominent — no “Available” label (the screen title already says Balance).
+- Title row: **Funds** on the left, USD amount prominent on the right — no “Available” label (the screen title already says Funds).
 - Primary: **Add funds**.
 
 **Interactions**
@@ -398,7 +397,7 @@ Skip this screen when arriving from Evaluate result with a confirmed amount (sti
 
 **Not here**
 
-- Available balance or Add funds — those stay on **Balance**.
+- Available balance or Add funds — those stay on **Funds**.
 
 ---
 
@@ -412,10 +411,10 @@ Skip this screen when arriving from Evaluate result with a confirmed amount (sti
 - Amount field (USD major units). No currency toggle.
 - Minimum hint: at least $5.00.
 - When opened from insufficient funds: prefill suggested amount as **max(shortfall, $5.00)** — never below **$5.00**. Show “Needed for this clearing: $X” (shortfall) even when the prefill is higher because of the minimum.
-- Primary: **Pay** → Stripe PaymentSheet / Checkout flow (presentment **usd**).
-- After success: brief confirmation (“$Y added”) → **return the user to where they came from**, preserving that screen’s state:
+- Primary: **Add funds** → Stripe PaymentSheet / Checkout flow (presentment **usd**).
+- After success: bottom success toast (“$Y added to your account”) → **return the user to where they came from**, preserving that screen’s state:
   - From Clear · Confirm (insufficient funds) → back to **Confirm** with the same tonnes, class, attribution, and message still filled; refresh balance/quote.
-  - From Balance → back to **Balance**.
+  - From Funds → back to **Funds**.
   - From Home (if Add funds is offered there) → back to **Home**.
 
 **Interactions**
@@ -435,11 +434,11 @@ Skip this screen when arriving from Evaluate result with a confirmed amount (sti
 | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Brand header  | **Always** show the logo mark + **ClearMyCarbon** at the top when signed in (tab screens and stacked flows). Screen titles (“Estimate…”, “History”, etc.) stay in the body — they never replace the product name in the header. Back chevron may sit beside the brand on stacked screens. **Right side (trailing):** always a **profile icon** (person) that opens **Profile**. On Profile, keep the icon visible with a soft light-green (`accentSoft`) pill behind it (selected state) and do not push Profile again. Do **not** show lifetime cleared tonnage in the header — History is the place to browse certificates. |
 | Logo          | One simple mark (leaf / cleared-air motif in brand forest green). Paired with the name in chrome and on Welcome. Mark alone only at tiny sizes (app icon / favicon). No crypto, globe-cliché overload, or decorative badges on the mark. |
-| Tab bar       | Home · History · **Balance** (signed-in only). Each tab has a simple icon above the label (home / history / wallet or similar — not the person mark; that is header-only for Profile). The Balance tab label is **Balance**; the button also shows the **current available balance** (USD from `GET /account`, compact e.g. `$12.34`) so funding status is visible without opening the tab. Active tint uses brand accent; inactive is muted. Selected tab sits on a soft light-green pill (`accentSoft`) behind icon + label — not a harsh full-width block. Add a little bottom padding (and respect the safe-area inset) so icons and labels are not flush with the screen edge. **Visibility:** show on the three tabs, on **Profile**, and on **early Evaluate** (activity input and **Quota empty**). Hide on **Evaluate result** and for the rest of the clear / deposit / progress / certificate tunnel. While on Profile or early Evaluate, none of the three tab buttons is “selected” (all inactive/muted) — that is fine; do not invent a fourth tab highlight. |
+| Tab bar       | Home · History · **Funds** (signed-in only). Each tab has a simple icon above the label (home / history / wallet or similar — not the person mark; that is header-only for Profile). The Funds tab label is **Funds**; the button also shows the **current available balance** (USD from `GET /account`, compact e.g. `$12.34`) so funding status is visible without opening the tab. Active tint uses brand accent; inactive is muted. Selected tab sits on a soft light-green pill (`accentSoft`) behind icon + label — not a harsh full-width block. Add a little bottom padding (and respect the safe-area inset) so icons and labels are not flush with the screen edge. **Visibility:** show on the three tabs, on **Profile**, and on **early Evaluate** (activity input and **Quota empty**). Hide on **Evaluate result** and for the rest of the clear / deposit / progress / certificate tunnel. While on Profile or early Evaluate, none of the three tab buttons is “selected” (all inactive/muted) — that is fine; do not invent a fourth tab highlight. |
 | Auth gate     | Any deep link into evaluate/clear without session → Welcome, then resume intent if practical.                                                                                                            |
 | Cold start    | First API call may spin longer; prefer retry with message over instant hard fail.                                                                                                                        |
 | Errors        | Inline on the screen that caused them; never toasts; never wholesale fields. **Placement:** (1) **Field** validation (empty, min amount, weak password, incorrect verification code, invalid tonnes, etc.) → text **directly below** that field. (2) **Form / screen** failures (API, auth that isn’t tied to one field, load errors) → a single summary banner **above** the form fields (or at the top of the screen body for non-forms). Do not duplicate the same message in both places. Use `{ error }` copy when safe. Auth verification-code failures (sign-in MFA, sign-up, reset password): prefer **Incorrect verification code. Please check your email and try again.** under the code field. |
-| Success toast | Ephemeral confirmation at the **bottom** of the content area — **above the tab bar** when the tab bar is visible (tabs, Profile, early Evaluate); never covers Home / History / Balance. Light green (`accentSoft`) with accent text. Auto-dismisses; not a modal. First use: password reset success (**Password updated**). Do not use for errors (those stay inline). |
+| Success toast | Ephemeral confirmation at the **bottom** of the content area — **above the tab bar** when the tab bar is visible (tabs, Profile, early Evaluate); never covers Home / History / Funds. Light green (`accentSoft`) with accent text. Auto-dismisses; not a modal. Uses: password reset success (**Password updated**); deposit success (**$Y added to your account**, or “Payment received — balance will update shortly” if the balance has not refreshed yet). Toast may appear on the screen after navigation. Do not use for errors (those stay inline). |
 | Connectivity  | Offline: disable primary submits; show a single banner.                                                                                                                                                  |
 | Form submit   | **Enter** on any text field in a form runs the screen’s **primary** CTA (same enablement rules as the button). Never bind Enter to Cancel, Sign out, or other secondary/destructive actions. Multiline: Enter submits; Shift+Enter inserts a newline when supported. |
 
@@ -466,7 +465,7 @@ Quota decrements on successful Estimate. Quota resets to 10 when clearing settle
 Home → Evaluate → Result → Done → Home
 ```
 
-User may leave with a mental note (or we keep last suggestion in session for “Clear” prefill). Balance can stay $0.
+User may leave with a mental note (or we keep last suggestion in session for “Clear” prefill). Funds can stay $0.
 
 ### C. Known tonnage, already funded
 
@@ -551,7 +550,7 @@ Sign-in → Forgot password? → Reset password (email → code + new password)
 | Plan item            | Screens / flows                                   |
 | -------------------- | ------------------------------------------------- |
 | M1 App shell         | Tabs, brand header (logo + name + profile icon), API client, cold-start handling |
-| M2 Auth and account  | Welcome, Sign-in, Reset password, Home CTAs, Balance (funds only), Profile (header), Deposit |
+| M2 Auth and account  | Welcome, Sign-in, Reset password, Home CTAs, Funds (funded USD only), Profile (header), Deposit |
 | M3 Evaluate          | Evaluate, Result, Quota empty                     |
 | M4 Quote and confirm | Amount, Class, Confirm, Progress, deposit handoff |
 | M5 Certificate       | Certificate success, History, Detail              |

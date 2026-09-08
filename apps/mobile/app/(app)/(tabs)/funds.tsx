@@ -1,7 +1,7 @@
 import type { APIAccountBalance } from 'api-types'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { useCallback, useState } from 'react'
-import { ActivityIndicator, ScrollView, Text } from 'react-native'
+import { ActivityIndicator, ScrollView, Text, View } from 'react-native'
 
 import { Button, ErrorBanner } from '@/components/ui'
 import { publishAvailableCents } from '@/lib/accountBalanceCache'
@@ -10,7 +10,7 @@ import { formatUsdCents } from '@/lib/format'
 import { colors, spacing, typography } from '@/lib/theme'
 import { useAuthRefresh } from '@/lib/useAuthRefresh'
 
-export default function BalanceScreen() {
+export default function FundsScreen() {
   const router = useRouter()
   const { runExclusive, requireToken, pauseAutoRefreshRef } = useAuthRefresh()
 
@@ -34,7 +34,7 @@ export default function BalanceScreen() {
             ? err.message
             : err instanceof Error
               ? err.message
-              : 'Failed to load balance',
+              : 'Failed to load funds',
         )
       } finally {
         setLoading(false)
@@ -54,7 +54,23 @@ export default function BalanceScreen() {
       style={{ flex: 1, backgroundColor: colors.bg }}
       contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}
     >
-      <Text style={typography.title}>Balance</Text>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: spacing.md,
+        }}
+      >
+        <Text style={typography.title}>Funds</Text>
+        {loading && !account ? (
+          <ActivityIndicator color={colors.accent} />
+        ) : account ? (
+          <Text style={typography.title}>
+            {formatUsdCents(account.available)}
+          </Text>
+        ) : null}
+      </View>
 
       <ErrorBanner message={error} />
       {error ? (
@@ -66,14 +82,6 @@ export default function BalanceScreen() {
           }}
           variant="secondary"
         />
-      ) : null}
-
-      {loading && !account ? (
-        <ActivityIndicator color={colors.accent} />
-      ) : account ? (
-        <Text style={typography.title}>
-          {formatUsdCents(account.available)}
-        </Text>
       ) : null}
 
       <Button

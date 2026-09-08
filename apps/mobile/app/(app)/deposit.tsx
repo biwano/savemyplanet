@@ -1,8 +1,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ScrollView, Text } from 'react-native'
 
-import { Button, ErrorBanner, Field, Form } from '@/components/ui'
+import { Button, ErrorBanner, Field, Form, useToast } from '@/components/ui'
 import { publishAvailableCents } from '@/lib/accountBalanceCache'
 import { ApiError, api } from '@/lib/api'
 import { hasStripePublishableKey } from '@/lib/config'
@@ -44,6 +44,7 @@ export default function DepositScreen() {
     shortfallCents?: string
   }>()
   const { requireToken } = useAuthRefresh()
+  const { showToast } = useToast()
 
   const shortfallCents = parseParamCents(params.shortfallCents)
   const suggestedCents = useMemo(() => {
@@ -59,19 +60,10 @@ export default function DepositScreen() {
   const [error, setError] = useState<string | null>(null)
   const [amountError, setAmountError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [successMessage, setSuccessMessage] = useState<string | null>(null)
-  const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  useEffect(() => {
-    return () => {
-      if (leaveTimerRef.current != null) clearTimeout(leaveTimerRef.current)
-    }
-  }, [])
 
   async function onStartPay() {
     setError(null)
     setAmountError(null)
-    setSuccessMessage(null)
     if (!hasStripePublishableKey()) {
       setError('EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY is not set')
       return
@@ -111,18 +103,14 @@ export default function DepositScreen() {
       )
       publishAvailableCents(afterAvailable)
       const added = afterAvailable - availableBefore
-      setSuccessMessage(
+      showToast(
         added > 0
-          ? `${formatUsdCents(added)} added`
+          ? `${formatUsdCents(added)} added to your account`
           : 'Payment received — balance will update shortly',
       )
       setClientSecret(null)
-      if (leaveTimerRef.current != null) clearTimeout(leaveTimerRef.current)
-      leaveTimerRef.current = setTimeout(() => {
-        leaveTimerRef.current = null
-        if (router.canGoBack()) router.back()
-        else router.replace('/(app)/(tabs)/balance')
-      }, 1200)
+      if (router.canGoBack()) router.back()
+      else router.replace('/(app)/(tabs)/funds')
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -152,9 +140,6 @@ export default function DepositScreen() {
       ) : null}
 
       <ErrorBanner message={error} />
-      {successMessage ? (
-        <Text style={typography.body}>{successMessage}</Text>
-      ) : null}
 
       {clientSecret ? (
         <DepositCheckout
@@ -163,10 +148,7 @@ export default function DepositScreen() {
           onCancel={() => setClientSecret(null)}
         />
       ) : (
-        <Form
-          onSubmit={() => void onStartPay()}
-          disabled={busy || !!successMessage}
-        >
+        <Form onSubmit={() => void onStartPay()} disabled={busy}>
           <Field
             label="Amount (USD)"
             value={amountMajor}
@@ -182,7 +164,7 @@ export default function DepositScreen() {
             <Text style={typography.muted}>At least $5.00</Text>
           ) : null}
 
-          <Button submit label={busy ? 'Starting…' : 'Pay'} />
+          <Button submit label={busy ? 'Starting…' : 'Add funds'} />
         </Form>
       )}
     </ScrollView>

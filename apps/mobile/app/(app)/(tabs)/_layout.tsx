@@ -3,7 +3,7 @@ import { SymbolView, type AndroidSymbol, type SFSymbol } from 'expo-symbols'
 import { type ColorValue, Text } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
-import { BalanceTabLabel } from '@/components/BalanceTabLabel'
+import { FundsTabLabel } from '@/components/FundsTabLabel'
 import { HeaderBrandLeft } from '@/components/HeaderBrandLeft'
 import { HeaderRight } from '@/components/HeaderRight'
 import { tabBarStyle } from '@/lib/tabBar'
@@ -120,10 +120,10 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="balance"
+        name="funds"
         options={{
-          title: 'Balance',
-          tabBarLabel: ({ focused }) => <BalanceTabLabel focused={focused} />,
+          title: 'Funds',
+          tabBarLabel: ({ focused }) => <FundsTabLabel focused={focused} />,
           tabBarIcon: ({ focused, color, size }) => (
             <TabIcon
               focused={focused}

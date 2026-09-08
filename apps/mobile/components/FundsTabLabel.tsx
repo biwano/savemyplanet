@@ -32,8 +32,8 @@ function TabLabel({
   )
 }
 
-/** Balance tab: title + live available USD from the shared cache. */
-export function BalanceTabLabel({ focused }: { focused: boolean }) {
+/** Funds tab: title + live available USD from the shared cache. */
+export function FundsTabLabel({ focused }: { focused: boolean }) {
   const { requireToken } = useAuthRefresh()
   const [available, setAvailable] = useState(getCachedAvailableCents())
 
@@ -51,7 +51,7 @@ export function BalanceTabLabel({ focused }: { focused: boolean }) {
         const account = await api.account(await requireToken())
         if (!cancelled) publishAvailableCents(account.available)
       } catch {
-        // Tab chrome stays empty; Balance screen owns the error UI.
+        // Tab chrome stays empty; Funds screen owns the error UI.
       }
     })()
     return () => {
@@ -61,7 +61,7 @@ export function BalanceTabLabel({ focused }: { focused: boolean }) {
 
   return (
     <View style={{ alignItems: 'center' }}>
-      <TabLabel label="Balance" focused={focused} />
+      <TabLabel label="Funds" focused={focused} />
       {available != null ? (
         <Text
           style={{

@@ -7,7 +7,7 @@ function notify() {
   for (const listener of listeners) listener()
 }
 
-/** Publish available cents so the Balance tab chrome stays in sync. */
+/** Publish available cents so the Funds tab chrome stays in sync. */
 export function publishAvailableCents(cents: number) {
   cachedAvailableCents = cents
   notify()

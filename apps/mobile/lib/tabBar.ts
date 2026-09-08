@@ -3,7 +3,7 @@ import type { ViewStyle } from 'react-native'
 import { colors, spacing } from '@/lib/theme'
 
 /** Icon + label row inside the tab bar (excludes vertical padding).
- * Balance tab uses a two-line label (title + amount), so keep a little extra room. */
+ * Funds tab uses a two-line label (title + amount), so keep a little extra room. */
 export const TAB_BAR_INNER_HEIGHT = 64
 
 export function tabBarTopPadding(): number {
