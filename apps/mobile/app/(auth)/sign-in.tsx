@@ -84,7 +84,7 @@ export default function SignInScreen() {
 
   return (
     <Screen>
-      <BrandMark size="hero" />
+      <BrandMark />
       <Text style={typography.title}>Sign in</Text>
       <ErrorBanner message={error} />
       {!pendingSecondFactor ? (

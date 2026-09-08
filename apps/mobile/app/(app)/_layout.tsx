@@ -1,7 +1,7 @@
 import { Stack } from 'expo-router'
 
 import { BrandMark } from '@/components/BrandMark'
-import { HeaderTotalCleared } from '@/components/HeaderTotalCleared'
+import { HeaderRight } from '@/components/HeaderRight'
 import { colors } from '@/lib/theme'
 
 export default function AppLayout() {
@@ -12,11 +12,10 @@ export default function AppLayout() {
         headerShadowVisible: false,
         headerTintColor: colors.ink,
         headerTitle: () => <BrandMark />,
-        headerRight: () => <HeaderTotalCleared />,
+        headerRight: () => <HeaderRight />,
       }}
     >
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="evaluate" />
       <Stack.Screen name="retire" />
       <Stack.Screen name="deposit" />
     </Stack>

@@ -283,14 +283,19 @@ Expo app talks **only** to our backend (config: `EXPO_PUBLIC_API_URL`). Default 
 - [x] Auth storage (secure store) for JWT (managed by Clerk).
 - [x] API client typed from the frozen contract.
 - [x] Tolerate Cloud Run/Neon cold start on first request (retry/spinner, not a 3s hard fail).
+- [x] Signed-in **brand header** right chrome per [ux.md](ux.md): **profile icon** (opens Profile). Profile is not a permanent tab button; tab bar stays visible on Profile and early Evaluate ([ux.md](ux.md)).
 
 ### M2. Auth and account
 
 - [x] **Done when:** a user can sign in and see balance after an admin credit.
 
 - [x] register, login, logout via Clerk Expo SDK (Welcome / Sign-in per [ux.md](ux.md)).
-- [x] **Reset password** via Clerk (email code → new password). Entry from Sign-in (“Forgot password?”); no backend route — Clerk handles identity; success sets an active session and lands on Home. Screens/copy: [ux.md](ux.md).
-- [x] Home, Account, and Deposit screens per [ux.md](ux.md) (Home: estimate/clear CTAs, no balance or evaluations count; Account: available balance + name edit + Add funds + sign out; Deposit via Stripe PaymentSheet / Elements).
+- [x] **Reset password** via Clerk (email code → new password). Entry from Sign-in (“Forgot password?”); no backend route — Clerk handles identity; success sets an active session and lands on Home with bottom toast **Password updated**. Screens/copy: [ux.md](ux.md).
+- [x] Home, **Balance** tab, **Profile**, and Deposit screens per [ux.md](ux.md):
+  - Home: estimate/clear CTAs; no balance or evaluations count in the body.
+  - **Balance** tab (label **Balance**; tab button also shows current available USD): available balance + Add funds only — no name edit / sign out.
+  - **Profile** (header icon, top right): first name, last name, **Edit**, **Sign out**.
+  - Deposit via Stripe PaymentSheet / Elements.
 
 ### M3. Evaluate
 
@@ -530,7 +535,7 @@ EIP-3009 / Klima `salt` is **out of scope** to “fix”: we do not mint nonces;
 - [ ] S2 Expo web → staging API
 - [ ] *Freeze API table*
 - [x] M1 app shell
-- [x] M2 auth (Clerk) + account / deposit
+- [x] M2 auth (Clerk) + balance / profile / deposit
 - [ ] M3 evaluate (LLM)
 - [ ] M4–M5 retire UX (classes) + certificate
 - [ ] M6 EAS preview (staging API + web)

@@ -1,32 +1,19 @@
 import { Image, StyleSheet, Text, View } from 'react-native'
 
-import { colors, spacing, typography } from '@/lib/theme'
+import { colors, spacing } from '@/lib/theme'
 
-type BrandMarkProps = {
-  /** `nav` = compact header chrome; `hero` = Welcome / signed-out. */
-  size?: 'nav' | 'hero'
-}
+const ICON_SIZE = 56
 
-export function BrandMark({ size = 'nav' }: BrandMarkProps) {
-  const iconSize = size === 'hero' ? 56 : 28
-
+/** Logo mark + ClearMyCarbon wordmark for headers and auth screens. */
+export function BrandMark() {
   return (
-    <View
-      accessibilityRole="header"
-      style={[styles.row, size === 'hero' && styles.hero]}
-    >
+    <View accessibilityRole="header" style={styles.row}>
       <Image
         accessibilityLabel="ClearMyCarbon logo"
         source={require('@/assets/images/logo.png')}
-        style={{
-          width: iconSize,
-          height: iconSize,
-          borderRadius: size === 'hero' ? 14 : 7,
-        }}
+        style={styles.icon}
       />
-      <Text style={size === 'hero' ? typography.brand : styles.navTitle}>
-        ClearMyCarbon
-      </Text>
+      <Text style={styles.title}>ClearMyCarbon</Text>
     </View>
   )
 }
@@ -37,11 +24,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  hero: {
-    gap: spacing.md,
+  icon: {
+    width: ICON_SIZE,
+    height: ICON_SIZE,
+    borderRadius: 14,
   },
-  navTitle: {
-    fontSize: 17,
+  title: {
+    fontSize: 26,
     fontWeight: '700',
     letterSpacing: -0.3,
     color: colors.ink,

@@ -3,13 +3,10 @@ import { SymbolView, type AndroidSymbol, type SFSymbol } from 'expo-symbols'
 import { type ColorValue, Text } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
-import { BrandMark } from '@/components/BrandMark'
-import { HeaderTotalCleared } from '@/components/HeaderTotalCleared'
-import {
-  TAB_BAR_INNER_HEIGHT,
-  tabBarBottomPadding,
-  tabBarTopPadding,
-} from '@/lib/tabBar'
+import { BalanceTabLabel } from '@/components/BalanceTabLabel'
+import { HeaderBrandLeft } from '@/components/HeaderBrandLeft'
+import { HeaderRight } from '@/components/HeaderRight'
+import { tabBarStyle } from '@/lib/tabBar'
 import { colors, spacing } from '@/lib/theme'
 
 function TabLabel({
@@ -63,8 +60,6 @@ function TabIcon({
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets()
-  const topPad = tabBarTopPadding()
-  const bottomPad = tabBarBottomPadding(insets.bottom)
 
   return (
     <Tabs
@@ -73,8 +68,8 @@ export default function TabsLayout() {
         headerShadowVisible: false,
         headerTintColor: colors.ink,
         headerTitle: '',
-        headerLeft: () => <BrandMark />,
-        headerRight: () => <HeaderTotalCleared />,
+        headerLeft: () => <HeaderBrandLeft />,
+        headerRight: () => <HeaderRight />,
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.muted,
         tabBarActiveBackgroundColor: colors.accentSoft,
@@ -83,13 +78,7 @@ export default function TabsLayout() {
           marginHorizontal: spacing.xs,
           overflow: 'hidden',
         },
-        tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.line,
-          height: TAB_BAR_INNER_HEIGHT + topPad + bottomPad,
-          paddingTop: topPad,
-          paddingBottom: bottomPad,
-        },
+        tabBarStyle: tabBarStyle(insets.bottom),
       }}
     >
       <Tabs.Screen
@@ -131,22 +120,37 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="account"
+        name="balance"
         options={{
-          title: 'Account',
-          tabBarLabel: ({ focused }) => (
-            <TabLabel label="Account" focused={focused} />
-          ),
+          title: 'Balance',
+          tabBarLabel: ({ focused }) => <BalanceTabLabel focused={focused} />,
           tabBarIcon: ({ focused, color, size }) => (
             <TabIcon
               focused={focused}
               color={color}
               size={size}
-              ios="person.crop.circle"
-              iosFocused="person.crop.circle.fill"
-              material="person"
+              ios="dollarsign.circle"
+              iosFocused="dollarsign.circle.fill"
+              material="account_balance_wallet"
             />
           ),
+        }}
+      />
+      {/* Flows that keep the tab bar — not permanent tab buttons. */}
+      <Tabs.Screen
+        name="profile"
+        options={{
+          href: null,
+          title: 'Profile',
+          headerLeft: () => <HeaderBrandLeft showBack />,
+        }}
+      />
+      <Tabs.Screen
+        name="evaluate"
+        options={{
+          href: null,
+          title: 'Evaluate',
+          headerLeft: () => <HeaderBrandLeft showBack />,
         }}
       />
     </Tabs>

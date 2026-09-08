@@ -1,16 +1,20 @@
 import { useAuth } from '@clerk/expo'
 import type { APIEvaluation } from 'api-types'
-import { useLocalSearchParams, useRouter } from 'expo-router'
-import { useState } from 'react'
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router'
+import { useLayoutEffect, useState } from 'react'
 import { Text } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { Button, ErrorBanner, Field, Form, Screen } from '@/components/ui'
 import { ApiError, api } from '@/lib/api'
+import { tabBarStyle } from '@/lib/tabBar'
 import { typography } from '@/lib/theme'
 
 export default function EvaluateScreen() {
   const { getToken } = useAuth()
   const router = useRouter()
+  const navigation = useNavigation()
+  const insets = useSafeAreaInsets()
   const params = useLocalSearchParams<{ activity?: string }>()
   const [activity, setActivity] = useState(
     typeof params.activity === 'string' ? params.activity : '',
@@ -18,6 +22,15 @@ export default function EvaluateScreen() {
   const [result, setResult] = useState<APIEvaluation | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+
+  // Early Evaluate (input / quota empty) keeps the tab bar; result hides it.
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      tabBarStyle: result
+        ? { display: 'none' }
+        : tabBarStyle(insets.bottom),
+    })
+  }, [navigation, result, insets.bottom])
 
   async function onEvaluate() {
     setBusy(true)

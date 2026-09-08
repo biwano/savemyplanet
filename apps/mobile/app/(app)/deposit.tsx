@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Pressable, ScrollView, Text, View } from 'react-native'
 
 import { Button, ErrorBanner, Field, Form } from '@/components/ui'
+import { publishAvailableCents } from '@/lib/accountBalanceCache'
 import { ApiError, api } from '@/lib/api'
 import { hasStripePublishableKey } from '@/lib/config'
 import {
@@ -121,6 +122,7 @@ export default function DepositScreen() {
         requireToken,
         availableBefore,
       )
+      publishAvailableCents(afterAvailable)
       const added = afterAvailable - availableBefore
       setSuccessMessage(
         added > 0
@@ -132,7 +134,7 @@ export default function DepositScreen() {
       leaveTimerRef.current = setTimeout(() => {
         leaveTimerRef.current = null
         if (router.canGoBack()) router.back()
-        else router.replace('/(app)/(tabs)/account')
+        else router.replace('/(app)/(tabs)/balance')
       }, 1200)
     } catch (err) {
       setError(

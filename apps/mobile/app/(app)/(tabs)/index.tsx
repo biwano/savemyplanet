@@ -1,8 +1,8 @@
 import { useRouter } from 'expo-router'
-import { ScrollView, Text } from 'react-native'
+import { ScrollView } from 'react-native'
 
 import { Button } from '@/components/ui'
-import { colors, spacing, typography } from '@/lib/theme'
+import { colors, spacing } from '@/lib/theme'
 
 export default function HomeScreen() {
   const router = useRouter()
@@ -12,11 +12,9 @@ export default function HomeScreen() {
       style={{ flex: 1, backgroundColor: colors.bg }}
       contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}
     >
-      <Text style={typography.muted}>Make peace with your carbon footprint.</Text>
-
       <Button
         label="Estimate your carbon footprint"
-        onPress={() => router.push('/(app)/evaluate')}
+        onPress={() => router.push('/(app)/(tabs)/evaluate')}
       />
       <Button
         label="Clear carbon"
