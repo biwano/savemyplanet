@@ -11,6 +11,7 @@ Mobile UX for **ClearMyCarbon**. Product rules: [product.md](product.md). API su
 5. **Fund only when it matters.** Evaluation works with a zero balance. Prompt to deposit at the moment clearing would fail, not before.
 6. **Quota motivates without nagging.** Show remaining evaluations on the Evaluate flow. At zero, the path forward is clear (which resets to 10), not “buy more evaluations.”
 7. **Enter submits.** Forms use a shared submit action: pressing **Enter** (or the primary CTA) runs that action when it would be enabled by tap — not a secondary or destructive control. Multiline fields follow the same rule (Enter submits; Shift+Enter for a newline where the platform allows).
+8. **Busy CTAs show a ripple spinner, not mutating copy.** While a primary action is in flight, keep the button’s accessible name as the stable action label (e.g. **Add funds**, **Sign in**) and show an indeterminate **ripple** indicator in place of the label. Do not swap the visible/accessible text to “Starting…”, “Signing in…”, etc. Disable the control and expose busy state to assistive tech.
 
 ## Information architecture
 
@@ -441,6 +442,7 @@ Skip this screen when arriving from Evaluate result with a confirmed amount (sti
 | Success toast | Ephemeral confirmation at the **bottom** of the content area — **above the tab bar** when the tab bar is visible (tabs, Profile, early Evaluate); never covers Home / History / Funds. Light green (`accentSoft`) with accent text. Auto-dismisses; not a modal. Uses: password reset success (**Password updated**); deposit success (**$Y added to your account**, or “Payment received — balance will update shortly” if the balance has not refreshed yet). Toast may appear on the screen after navigation. Do not use for errors (those stay inline). |
 | Connectivity  | Offline: disable primary submits; show a single banner.                                                                                                                                                  |
 | Form submit   | **Enter** on any text field in a form runs the screen’s **primary** CTA (same enablement rules as the button). Never bind Enter to Cancel, Sign out, or other secondary/destructive actions. Multiline: Enter submits; Shift+Enter inserts a newline when supported. |
+| Busy buttons  | In-flight primary CTAs: **ripple spinner only** (no “Signing in…” / “Getting quote…” label swap). Stable `accessibilityLabel` = the idle action name; mark the control disabled + busy (`accessibilityState.busy` / `aria-busy`). Full-screen or section spinners (cold start, quote load before Confirm, Progress) stay as they are — this row is about the CTA itself. |
 
 
 ---

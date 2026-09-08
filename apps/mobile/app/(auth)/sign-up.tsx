@@ -95,7 +95,7 @@ export default function SignUpScreen() {
             autoComplete="password"
             error={passwordError}
           />
-          <Button submit label={busy ? 'Creating…' : 'Sign up'} />
+          <Button submit label="Sign up" busy={busy} />
         </Form>
       ) : (
         <Form
@@ -117,7 +117,7 @@ export default function SignUpScreen() {
             autoComplete="one-time-code"
             error={codeError}
           />
-          <Button submit label={busy ? 'Verifying…' : 'Verify email'} />
+          <Button submit label="Verify email" busy={busy} />
         </Form>
       )}
       <Link href="/(auth)/sign-in">

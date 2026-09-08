@@ -90,7 +90,7 @@ export default function ResetPasswordScreen() {
             autoComplete="email"
             placeholder="you@example.com"
           />
-          <Button submit label={busy ? 'Sending…' : 'Send code'} />
+          <Button submit label="Send code" busy={busy} />
         </Form>
       ) : (
         <Form
@@ -124,7 +124,7 @@ export default function ResetPasswordScreen() {
             autoComplete="password"
             error={passwordError}
           />
-          <Button submit label={busy ? 'Resetting…' : 'Reset password'} />
+          <Button submit label="Reset password" busy={busy} />
         </Form>
       )}
       <Link href="/(auth)/sign-in">

@@ -93,7 +93,7 @@ export default function ProfileScreen() {
               }
               placeholder="Last name"
             />
-            <Button submit label={saving ? 'Saving…' : 'Save'} />
+            <Button submit label="Save" busy={saving} />
             <Button
               label="Cancel"
               onPress={cancelEditing}

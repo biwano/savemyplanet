@@ -164,7 +164,7 @@ export default function DepositScreen() {
             <Text style={typography.muted}>At least $5.00</Text>
           ) : null}
 
-          <Button submit label={busy ? 'Starting…' : 'Add funds'} />
+          <Button submit label="Add funds" busy={busy} />
         </Form>
       )}
     </ScrollView>

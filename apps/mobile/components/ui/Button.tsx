@@ -4,11 +4,14 @@ import { Platform, Pressable, StyleSheet, Text } from 'react-native'
 import { colors, spacing } from '@/lib/theme'
 
 import { useFormContext } from './formContext'
+import { RippleSpinner } from './RippleSpinner'
 
 type ButtonProps = {
   label: string
   onPress?: () => void
   disabled?: boolean
+  /** In-flight: spinner only; stable accessibility name stays `label`. */
+  busy?: boolean
   variant?: 'primary' | 'secondary' | 'danger'
   /** Primary form CTA — uses nearest Form’s onSubmit / disabled. */
   submit?: boolean
@@ -18,13 +21,21 @@ export function Button({
   label,
   onPress,
   disabled,
+  busy = false,
   variant = 'primary',
   submit = false,
 }: ButtonProps) {
   const form = useFormContext()
-  const isDisabled = submit ? Boolean(disabled || form?.disabled) : disabled
+  const isDisabled = Boolean(
+    busy || disabled || (submit ? form?.disabled : false),
+  )
+  const spinnerColor =
+    variant === 'secondary'
+      ? styles.buttonLabelSecondary.color
+      : styles.buttonLabel.color
 
   function handlePress() {
+    if (busy) return
     if (submit && form) {
       form.submit()
       return
@@ -37,11 +48,19 @@ export function Button({
     variant === 'secondary' && styles.buttonLabelSecondary,
   ]
 
+  const content = busy ? (
+    <RippleSpinner color={spinnerColor} />
+  ) : (
+    <Text style={labelStyle}>{label}</Text>
+  )
+
   if (Platform.OS === 'web' && submit) {
     return (
       <button
         type="submit"
         disabled={isDisabled}
+        aria-busy={busy || undefined}
+        aria-label={label}
         style={{
           ...buttonWebBase,
           ...(variant === 'secondary' ? buttonWebSecondary : null),
@@ -49,7 +68,7 @@ export function Button({
           ...(isDisabled ? buttonWebDisabled : null),
         }}
       >
-        <Text style={labelStyle}>{label}</Text>
+        {content}
       </button>
     )
   }
@@ -57,6 +76,8 @@ export function Button({
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: isDisabled, busy }}
       disabled={isDisabled}
       onPress={handlePress}
       style={({ pressed }) => [
@@ -67,7 +88,7 @@ export function Button({
         isDisabled && styles.buttonDisabled,
       ]}
     >
-      <Text style={labelStyle}>{label}</Text>
+      {content}
     </Pressable>
   )
 }
@@ -79,11 +100,14 @@ const buttonWebBase: CSSProperties = {
   paddingBottom: 14,
   paddingLeft: spacing.md,
   paddingRight: spacing.md,
+  display: 'flex',
   alignItems: 'center',
+  justifyContent: 'center',
   border: 'none',
   cursor: 'pointer',
   font: 'inherit',
   width: '100%',
+  minHeight: 48,
 }
 
 const buttonWebSecondary: CSSProperties = {
@@ -106,6 +130,8 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: spacing.md,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
   },
   buttonSecondary: {
     backgroundColor: colors.accentSoft,

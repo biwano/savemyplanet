@@ -122,7 +122,7 @@ export default function SignInScreen() {
             autoComplete="password"
             error={passwordError}
           />
-          <Button submit label={busy ? 'Signing in…' : 'Sign in'} />
+          <Button submit label="Sign in" busy={busy} />
           <Link href="/(auth)/reset-password">
             <Text style={typography.muted}>Forgot password?</Text>
           </Link>
@@ -147,7 +147,7 @@ export default function SignInScreen() {
             autoComplete="one-time-code"
             error={codeError}
           />
-          <Button submit label={busy ? 'Verifying…' : 'Verify'} />
+          <Button submit label="Verify" busy={busy} />
         </Form>
       )}
       <Link href="/(auth)/sign-up">

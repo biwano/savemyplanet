@@ -64,11 +64,7 @@ export function DepositCheckout({ clientSecret, onSuccess, onCancel }: Props) {
           <Text style={typography.muted}>
             Card details are collected in Stripe’s payment sheet.
           </Text>
-          <Button
-            label={busy ? 'Opening…' : 'Pay'}
-            onPress={() => void onPay()}
-            disabled={busy}
-          />
+          <Button label="Add funds" busy={busy} onPress={() => void onPay()} />
           <Button label="Cancel" onPress={onCancel} variant="secondary" />
         </>
       )}

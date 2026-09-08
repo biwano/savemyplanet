@@ -76,9 +76,10 @@ function CheckoutForm({ onSuccess, onCancel }: Omit<Props, 'clientSecret'>) {
         <PaymentElement />
       </div>
       <Button
-        label={busy ? 'Paying…' : 'Pay'}
+        label="Add funds"
+        busy={busy}
         onPress={() => void onPay()}
-        disabled={busy || !stripe || !elements}
+        disabled={!stripe || !elements}
       />
       <Button label="Cancel" onPress={onCancel} variant="secondary" />
     </View>

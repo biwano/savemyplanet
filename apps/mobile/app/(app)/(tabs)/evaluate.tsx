@@ -72,7 +72,7 @@ export default function EvaluateScreen() {
           multiline
           placeholder="I flew from Paris to New York round trip"
         />
-        <Button submit label={busy ? 'Evaluating…' : 'Evaluate'} />
+        <Button submit label="Evaluate" busy={busy} />
       </Form>
       {result && (
         <>

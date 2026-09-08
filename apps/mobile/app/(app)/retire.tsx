@@ -125,13 +125,14 @@ export default function RetireScreen() {
         {!quote ? (
           <Button
             submit
-            label={busy ? 'Getting quote…' : 'Get quote'}
+            label="Get quote"
+            busy={busy}
           />
         ) : (
           <Button
             label="Get quote"
             onPress={() => void onQuote()}
-            disabled={busy}
+            busy={busy}
             variant="secondary"
           />
         )}
@@ -159,7 +160,8 @@ export default function RetireScreen() {
             </Text>
             <Button
               submit
-              label={busy ? 'Retiring…' : 'Confirm retire'}
+              label="Confirm retire"
+              busy={busy}
             />
           </View>
         )}
