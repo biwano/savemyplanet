@@ -4,7 +4,7 @@ import { useLocalSearchParams } from 'expo-router'
 import { useState } from 'react'
 import { Linking, Text, View } from 'react-native'
 
-import { Button, ErrorBanner, Field, Screen } from '@/components/ui'
+import { Button, ErrorBanner, Field, Form, Screen } from '@/components/ui'
 import { invalidateClearedTonnes } from '@/components/HeaderTotalCleared'
 import { ApiError, api } from '@/lib/api'
 import { formatUsdCents } from '@/lib/format'
@@ -90,59 +90,77 @@ export default function RetireScreen() {
       </Text>
       <ErrorBanner message={error} />
 
-      <Field
-        label="Tonnes (tCO₂e)"
-        value={tonnes}
-        onChangeText={setTonnes}
-        keyboardType="decimal-pad"
-      />
-      <Field
-        label="Beneficiary name"
-        value={beneficiaryString}
-        onChangeText={setBeneficiaryString}
-        placeholder="Name on the certificate"
-      />
-      <Field
-        label="Message (optional)"
-        value={message}
-        onChangeText={setMessage}
-        multiline
-      />
-
-      <Button
-        label={busy && !quote ? 'Getting quote…' : 'Get quote'}
-        onPress={() => void onQuote()}
-        disabled={busy}
-      />
-
-      {quote && (
-        <View
-          style={{
-            backgroundColor: colors.surface,
-            borderRadius: 12,
-            padding: spacing.md,
-            borderWidth: 1,
-            borderColor: colors.line,
-            gap: spacing.sm,
+      <Form
+        onSubmit={() => {
+          if (quote) void onConfirmRetire()
+          else void onQuote()
+        }}
+        disabled={busy || !!retirement}
+      >
+        <Field
+          label="Tonnes (tCO₂e)"
+          value={tonnes}
+          onChangeText={(value) => {
+            setTonnes(value)
+            setQuote(null)
           }}
-        >
-          <Text style={typography.label}>Your price</Text>
-          <Text style={typography.body}>
-            {quote.tonnes} t · {formatUsdCents(quote.userTotal)}
-          </Text>
-          <Text style={typography.muted}>
-            Expires {new Date(quote.expiresAt).toLocaleString()}
-          </Text>
-          <Text style={typography.muted}>
-            Retirement is permanent. Confirm only if the amount and attribution look right.
-          </Text>
+          keyboardType="decimal-pad"
+        />
+        <Field
+          label="Beneficiary name"
+          value={beneficiaryString}
+          onChangeText={setBeneficiaryString}
+          placeholder="Name on the certificate"
+        />
+        <Field
+          label="Message (optional)"
+          value={message}
+          onChangeText={setMessage}
+          multiline
+        />
+
+        {!quote ? (
           <Button
-            label={busy ? 'Retiring…' : 'Confirm retire'}
-            onPress={() => void onConfirmRetire()}
-            disabled={busy || !!retirement}
+            submit
+            label={busy ? 'Getting quote…' : 'Get quote'}
           />
-        </View>
-      )}
+        ) : (
+          <Button
+            label="Get quote"
+            onPress={() => void onQuote()}
+            disabled={busy}
+            variant="secondary"
+          />
+        )}
+
+        {quote && (
+          <View
+            style={{
+              backgroundColor: colors.surface,
+              borderRadius: 12,
+              padding: spacing.md,
+              borderWidth: 1,
+              borderColor: colors.line,
+              gap: spacing.sm,
+            }}
+          >
+            <Text style={typography.label}>Your price</Text>
+            <Text style={typography.body}>
+              {quote.tonnes} t · {formatUsdCents(quote.userTotal)}
+            </Text>
+            <Text style={typography.muted}>
+              Expires {new Date(quote.expiresAt).toLocaleString()}
+            </Text>
+            <Text style={typography.muted}>
+              Retirement is permanent. Confirm only if the amount and attribution look right.
+            </Text>
+            <Button
+              submit
+              label={busy ? 'Retiring…' : 'Confirm retire'}
+            />
+          </View>
+        )}
+      </Form>
 
       {retirement && (
         <View

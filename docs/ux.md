@@ -10,6 +10,7 @@ Mobile UX for **ClearMyCarbon**. Product rules: [product.md](product.md). API su
 4. **Suggestion, not decree.** The LLM estimate is editable. The user owns the final tonnage.
 5. **Fund only when it matters.** Evaluation works with a zero balance. Prompt to deposit at the moment clearing would fail, not before.
 6. **Quota motivates without nagging.** Show remaining evaluations on the Evaluate flow. At zero, the path forward is clear (which resets to 10), not “buy more evaluations.”
+7. **Enter submits.** Forms use a shared submit action: pressing **Enter** (or the primary CTA) runs that action when it would be enabled by tap — not a secondary or destructive control. Multiline fields follow the same rule (Enter submits; Shift+Enter for a newline where the platform allows).
 
 ## Information architecture
 
@@ -379,6 +380,7 @@ Skip this screen when arriving from Evaluate result with a confirmed amount (sti
 | Cold start    | First API call may spin longer; prefer retry with message over instant hard fail.                                                                                                                        |
 | Errors        | Inline on the screen that caused them; use `{ error }` copy when safe. Never show wholesale fields.                                                                                                      |
 | Connectivity  | Offline: disable primary submits; show a single banner.                                                                                                                                                  |
+| Form submit   | **Enter** on any text field in a form runs the screen’s **primary** CTA (same enablement rules as the button). Never bind Enter to Cancel, Sign out, or other secondary/destructive actions. Multiline: Enter submits; Shift+Enter inserts a newline when supported. |
 
 
 ---

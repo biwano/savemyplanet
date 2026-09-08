@@ -4,7 +4,7 @@ import { useFocusEffect, useRouter } from 'expo-router'
 import { useCallback, useState } from 'react'
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native'
 
-import { Button, ErrorBanner, Field } from '@/components/ui'
+import { Button, ErrorBanner, Field, Form } from '@/components/ui'
 import { ApiError, api } from '@/lib/api'
 import { formatUsdCents } from '@/lib/format'
 import { colors, spacing, typography } from '@/lib/theme'
@@ -111,28 +111,32 @@ export default function AccountScreen() {
         <ActivityIndicator color={colors.accent} />
       ) : (
         <>
-          <Field
-            label="First name"
-            value={firstName}
-            onChangeText={(value) =>
-              setDraft({ firstName: value, lastName })
-            }
-            placeholder="First name"
-          />
-          <Field
-            label="Last name"
-            value={lastName}
-            onChangeText={(value) =>
-              setDraft({ firstName, lastName: value })
-            }
-            placeholder="Last name"
-          />
-          <Button
-            label={saving ? 'Saving…' : 'Save name'}
-            onPress={() => void onSaveName()}
+          <Form
+            onSubmit={() => void onSaveName()}
             disabled={saving || !user || draft == null}
-            variant="secondary"
-          />
+          >
+            <Field
+              label="First name"
+              value={firstName}
+              onChangeText={(value) =>
+                setDraft({ firstName: value, lastName })
+              }
+              placeholder="First name"
+            />
+            <Field
+              label="Last name"
+              value={lastName}
+              onChangeText={(value) =>
+                setDraft({ firstName, lastName: value })
+              }
+              placeholder="Last name"
+            />
+            <Button
+              submit
+              label={saving ? 'Saving…' : 'Save name'}
+              variant="secondary"
+            />
+          </Form>
           {saveMessage ? (
             <Text style={typography.muted}>{saveMessage}</Text>
           ) : null}

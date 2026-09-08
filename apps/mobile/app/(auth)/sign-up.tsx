@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { Text } from 'react-native'
 
 import { BrandMark } from '@/components/BrandMark'
-import { Button, ErrorBanner, Field, Screen } from '@/components/ui'
+import { Button, ErrorBanner, Field, Form, Screen } from '@/components/ui'
+import { maskEmail } from '@/lib/format'
 import { typography } from '@/lib/theme'
 
 export default function SignUpScreen() {
@@ -58,10 +59,12 @@ export default function SignUpScreen() {
     <Screen>
       <BrandMark />
       <Text style={typography.title}>Create account</Text>
-      <Text style={typography.muted}>We’ll email you a verification code.</Text>
       <ErrorBanner message={error} />
       {!pendingVerification ? (
-        <>
+        <Form
+          onSubmit={() => void onSubmit()}
+          disabled={busy || !email || !password}
+        >
           <Field
             label="Email"
             value={email}
@@ -74,21 +77,16 @@ export default function SignUpScreen() {
             onChangeText={setPassword}
             secureTextEntry
           />
-          <Button
-            label={busy ? 'Creating…' : 'Sign up'}
-            onPress={() => void onSubmit()}
-            disabled={busy || !email || !password}
-          />
-        </>
+          <Button submit label={busy ? 'Creating…' : 'Sign up'} />
+        </Form>
       ) : (
-        <>
+        <Form onSubmit={() => void onVerify()} disabled={busy || !code}>
+          <Text style={typography.muted}>
+            We sent a verification code to your email address {maskEmail(email)}.
+          </Text>
           <Field label="Verification code" value={code} onChangeText={setCode} />
-          <Button
-            label={busy ? 'Verifying…' : 'Verify email'}
-            onPress={() => void onVerify()}
-            disabled={busy || !code}
-          />
-        </>
+          <Button submit label={busy ? 'Verifying…' : 'Verify email'} />
+        </Form>
       )}
       <Link href="/(auth)/sign-in">
         <Text style={typography.muted}>Already have an account? Sign in</Text>

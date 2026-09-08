@@ -3,7 +3,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Pressable, ScrollView, Text, View } from 'react-native'
 
-import { Button, ErrorBanner, Field } from '@/components/ui'
+import { Button, ErrorBanner, Field, Form } from '@/components/ui'
 import { ApiError, api } from '@/lib/api'
 import { hasStripePublishableKey } from '@/lib/config'
 import {
@@ -212,22 +212,23 @@ export default function DepositScreen() {
             })}
           </View>
 
-          <Field
-            label="Amount"
-            value={amountMajor}
-            onChangeText={setAmountMajor}
-            keyboardType="decimal-pad"
-            placeholder="5.00"
-          />
-          <Text style={typography.muted}>
-            At least {formatPresentmentMajor(5, currency)}
-          </Text>
-
-          <Button
-            label={busy ? 'Starting…' : 'Pay'}
-            onPress={() => void onStartPay()}
+          <Form
+            onSubmit={() => void onStartPay()}
             disabled={busy || !!successMessage}
-          />
+          >
+            <Field
+              label="Amount"
+              value={amountMajor}
+              onChangeText={setAmountMajor}
+              keyboardType="decimal-pad"
+              placeholder="5.00"
+            />
+            <Text style={typography.muted}>
+              At least {formatPresentmentMajor(5, currency)}
+            </Text>
+
+            <Button submit label={busy ? 'Starting…' : 'Pay'} />
+          </Form>
         </>
       )}
     </ScrollView>

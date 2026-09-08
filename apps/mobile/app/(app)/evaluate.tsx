@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useState } from 'react'
 import { Text } from 'react-native'
 
-import { Button, ErrorBanner, Field, Screen } from '@/components/ui'
+import { Button, ErrorBanner, Field, Form, Screen } from '@/components/ui'
 import { ApiError, api } from '@/lib/api'
 import { typography } from '@/lib/theme'
 
@@ -48,18 +48,19 @@ export default function EvaluateScreen() {
         Describe what you did. The backend suggests tCO₂e — no funding required.
       </Text>
       <ErrorBanner message={error} />
-      <Field
-        label="Activity"
-        value={activity}
-        onChangeText={setActivity}
-        multiline
-        placeholder="I flew from Paris to New York round trip"
-      />
-      <Button
-        label={busy ? 'Evaluating…' : 'Evaluate'}
-        onPress={() => void onEvaluate()}
+      <Form
+        onSubmit={() => void onEvaluate()}
         disabled={busy || activity.trim().length === 0}
-      />
+      >
+        <Field
+          label="Activity"
+          value={activity}
+          onChangeText={setActivity}
+          multiline
+          placeholder="I flew from Paris to New York round trip"
+        />
+        <Button submit label={busy ? 'Evaluating…' : 'Evaluate'} />
+      </Form>
       {result && (
         <>
           <Text style={typography.label}>Suggestion</Text>

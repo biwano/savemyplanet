@@ -40,3 +40,13 @@ export function parseMajorToCents(raw: string): number | null {
 export function centsToMajorInput(cents: number): string {
   return (cents / 100).toFixed(2)
 }
+
+/** First 3 local-part chars + ellipsis + full domain (e.g. alice@x.com → ali...@x.com). */
+export function maskEmail(email: string): string {
+  const trimmed = email.trim()
+  const at = trimmed.indexOf('@')
+  if (at <= 0) return trimmed
+  const local = trimmed.slice(0, at)
+  const domain = trimmed.slice(at + 1)
+  return `${local.slice(0, 3)}...@${domain}`
+}
