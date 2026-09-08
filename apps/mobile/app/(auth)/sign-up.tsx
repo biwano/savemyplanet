@@ -5,6 +5,7 @@ import { Text } from 'react-native'
 
 import { BrandMark } from '@/components/BrandMark'
 import { Button, ErrorBanner, Field, Form, Screen } from '@/components/ui'
+import { clerkAuthErrorMessage } from '@/lib/clerkAuthError'
 import { maskEmail } from '@/lib/format'
 import { typography } from '@/lib/theme'
 
@@ -29,7 +30,7 @@ export default function SignUpScreen() {
       await signUp.prepareEmailAddressVerification({ strategy: 'email_code' })
       setPendingVerification(true)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Sign-up failed')
+      setError(clerkAuthErrorMessage(err, 'Sign-up failed'))
     } finally {
       setBusy(false)
     }
@@ -49,7 +50,7 @@ export default function SignUpScreen() {
         setError('Verification incomplete')
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Verification failed')
+      setError(clerkAuthErrorMessage(err, 'Verification failed'))
     } finally {
       setBusy(false)
     }
@@ -63,28 +64,42 @@ export default function SignUpScreen() {
       {!pendingVerification ? (
         <Form
           onSubmit={() => void onSubmit()}
-          disabled={busy || !email || !password}
+          disabled={busy || !email.trim() || !password}
         >
           <Field
             label="Email"
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
+            textContentType="emailAddress"
+            autoComplete="email"
           />
           <Field
             label="Password"
             value={password}
             onChangeText={setPassword}
             secureTextEntry
+            textContentType="password"
+            autoComplete="password"
           />
           <Button submit label={busy ? 'Creating…' : 'Sign up'} />
         </Form>
       ) : (
-        <Form onSubmit={() => void onVerify()} disabled={busy || !code}>
+        <Form
+          onSubmit={() => void onVerify()}
+          disabled={busy || !code.trim()}
+        >
           <Text style={typography.muted}>
             We sent a verification code to your email address {maskEmail(email)}.
           </Text>
-          <Field label="Verification code" value={code} onChangeText={setCode} />
+          <Field
+            label="Verification code"
+            value={code}
+            onChangeText={setCode}
+            keyboardType="number-pad"
+            textContentType="oneTimeCode"
+            autoComplete="one-time-code"
+          />
           <Button submit label={busy ? 'Verifying…' : 'Verify email'} />
         </Form>
       )}

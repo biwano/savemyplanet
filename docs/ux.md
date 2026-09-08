@@ -17,6 +17,7 @@ Mobile UX for **ClearMyCarbon**. Product rules: [product.md](product.md). API su
 ```
 Signed out
   └─ Welcome / Sign-in
+        └─ Reset password (email → code + new password)
 
 Signed in (tab shell)
   ├─ Home
@@ -45,16 +46,44 @@ Tabs stay at three. Evaluate and Clear are **flows** launched from Home (or Hist
 - Tagline: **Make peace with your carbon footprint.**
 - Primary CTA: Continue / Sign in (Clerk).
 - Secondary: Create account (same Clerk flow if separate). Sign-up shows the same compact logo + name at the top (not a second hero treatment).
+- Tertiary: **Forgot password?** → **Reset password**.
 
 **Interactions**
 
 - Tap sign-in / sign-up → Clerk UI (email, Apple, Google — whatever Clerk is configured for).
+- Tap Forgot password? → **Reset password**.
 - Success → land on **Home**.
 - No browse-as-guest. Auth is required (matches API: evaluate and account need a session).
 
 **Not on this screen**
 
 - Balance, classes, sample certificates, feature grids, or “how it works” carousels.
+
+---
+
+### 1b. Reset password
+
+**Purpose.** Recover access when the user forgot their password. Entirely via Clerk (email code); no ClearMyCarbon API call.
+
+**Content**
+
+- Compact logo + name (same as Sign-up — not a second hero).
+- Title: Reset password.
+- Step 1 — email: Email field + primary **Send code**. Helper: we’ll email a one-time code.
+- Step 2 — code + new password: muted line that a code was sent to the masked email; Verification code field; New password field; primary **Reset password**.
+- Link back: **Back to sign in**.
+
+**Interactions**
+
+- Send code (non-empty email) → Clerk starts reset (`reset_password_email_code`); on success show step 2.
+- Reset (code + password) → Clerk verifies and sets the new password; on `complete`, activate the new session → **Home**, and show a temporary **bottom success toast**: **Password updated** (auto-dismiss after a few seconds; does not block taps). The toast may appear on Home after the auth redirect — same message either way.
+- Incorrect verification code → inline error: **Incorrect verification code. Please check your email and try again.** Stay on step 2.
+- Invalid / expired code (other) or weak password → inline error; stay on the current step.
+- Back to sign in → Sign-in (discard in-progress reset).
+
+**Not here**
+
+- Security questions, SMS reset (v1 is email only), or account balance / product chrome.
 
 ---
 
@@ -378,7 +407,8 @@ Skip this screen when arriving from Evaluate result with a confirmed amount (sti
 | Tab bar       | Home · History · Account (signed-in only). Each tab has a simple icon above the label (home / history / person). Active tint uses brand accent; inactive is muted. Selected tab sits on a soft light-green pill (`accentSoft`) behind icon + label — not a harsh full-width block. Add a little bottom padding (and respect the safe-area inset) so icons and labels are not flush with the screen edge. |
 | Auth gate     | Any deep link into evaluate/clear without session → Welcome, then resume intent if practical.                                                                                                            |
 | Cold start    | First API call may spin longer; prefer retry with message over instant hard fail.                                                                                                                        |
-| Errors        | Inline on the screen that caused them; use `{ error }` copy when safe. Never show wholesale fields.                                                                                                      |
+| Errors        | Inline on the screen that caused them; use `{ error }` copy when safe. Never show wholesale fields. Auth verification-code failures (sign-in MFA, sign-up, reset password): prefer **Incorrect verification code. Please check your email and try again.** over raw Clerk “Incorrect code”. |
+| Success toast | Ephemeral confirmation at the **bottom** of the content area — **above the tab bar** when signed in (never covers Home / History / Account). Light green (`accentSoft`) with accent text. Auto-dismisses; not a modal. First use: password reset success (**Password updated**). Do not use for errors (those stay inline). |
 | Connectivity  | Offline: disable primary submits; show a single banner.                                                                                                                                                  |
 | Form submit   | **Enter** on any text field in a form runs the screen’s **primary** CTA (same enablement rules as the button). Never bind Enter to Cancel, Sign out, or other secondary/destructive actions. Multiline: Enter submits; Shift+Enter inserts a newline when supported. |
 
@@ -451,6 +481,13 @@ Copy must not say “failed” while funds are reserved.
 Account → Sign out → Welcome
 ```
 
+### I. Reset password
+
+```
+Sign-in → Forgot password? → Reset password (email → code + new password)
+  → (success, session active) → Home + bottom toast “Password updated”
+```
+
 ---
 
 ## Copy guidelines
@@ -482,7 +519,7 @@ Account → Sign out → Welcome
 | Plan item            | Screens / flows                                   |
 | -------------------- | ------------------------------------------------- |
 | M1 App shell         | Tabs, brand header (logo + name + total cleared), API client, cold-start handling |
-| M2 Auth and account  | Welcome, Home CTAs, Account (balance), Deposit |
+| M2 Auth and account  | Welcome, Sign-in, Reset password, Home CTAs, Account (balance), Deposit |
 | M3 Evaluate          | Evaluate, Result, Quota empty                     |
 | M4 Quote and confirm | Amount, Class, Confirm, Progress, deposit handoff |
 | M5 Certificate       | Certificate success, History, Detail              |

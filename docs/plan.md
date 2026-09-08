@@ -253,6 +253,7 @@ User-facing JSON. Field names are the freeze; change only with a version bump.
 | GET | `/health` | no | `{ ok: true }` |
 | POST | `/auth/register` | no | handled by Clerk UI |
 | POST | `/auth/login` | no | handled by Clerk UI |
+| — | password reset | no | handled by Clerk (email code → new password); no ClearMyCarbon HTTP route |
 | GET | `/me` | yes | `{ user, account }` — `user` includes `evaluationsRemaining`, `beneficiaryAddress` |
 | GET | `/account` | yes | `{ available, reserved, currency }` |
 | POST | `/account/deposit` | yes | `{ clientSecret, paymentIntentId }` (presentment `usd` \| `eur`) |
@@ -288,6 +289,7 @@ Expo app talks **only** to our backend (config: `EXPO_PUBLIC_API_URL`). Default 
 - [x] **Done when:** a user can sign in and see balance after an admin credit.
 
 - [x] register, login, logout via Clerk Expo SDK (Welcome / Sign-in per [ux.md](ux.md)).
+- [x] **Reset password** via Clerk (email code → new password). Entry from Sign-in (“Forgot password?”); no backend route — Clerk handles identity; success sets an active session and lands on Home. Screens/copy: [ux.md](ux.md).
 - [x] Home, Account, and Deposit screens per [ux.md](ux.md) (Home: estimate/clear CTAs, no balance or evaluations count; Account: available balance + name edit + Add funds + sign out; Deposit via Stripe PaymentSheet / Elements).
 
 ### M3. Evaluate

@@ -5,6 +5,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { BrandMark } from '@/components/BrandMark'
 import { HeaderTotalCleared } from '@/components/HeaderTotalCleared'
+import {
+  TAB_BAR_INNER_HEIGHT,
+  tabBarBottomPadding,
+  tabBarTopPadding,
+} from '@/lib/tabBar'
 import { colors, spacing } from '@/lib/theme'
 
 function TabLabel({
@@ -58,10 +63,8 @@ function TabIcon({
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets()
-  const topPad = spacing.sm
-  const bottomPad = Math.max(insets.bottom, spacing.md)
-  // Icon (~28) + label (~16) + item padding — must not be eaten by bar padding.
-  const innerHeight = 56
+  const topPad = tabBarTopPadding()
+  const bottomPad = tabBarBottomPadding(insets.bottom)
 
   return (
     <Tabs
@@ -83,7 +86,7 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.line,
-          height: innerHeight + topPad + bottomPad,
+          height: TAB_BAR_INNER_HEIGHT + topPad + bottomPad,
           paddingTop: topPad,
           paddingBottom: bottomPad,
         },

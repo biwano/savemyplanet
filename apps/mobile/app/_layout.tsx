@@ -5,6 +5,7 @@ import * as SplashScreen from 'expo-splash-screen'
 import { useEffect, type ReactNode } from 'react'
 import { ActivityIndicator, View } from 'react-native'
 
+import { ToastProvider } from '@/components/ui'
 import { getClerkPublishableKey } from '@/lib/config'
 import { StripeAppProvider } from '@/lib/stripe/StripeAppProvider'
 import { colors } from '@/lib/theme'
@@ -52,12 +53,14 @@ export default function RootLayout() {
       tokenCache={tokenCache}
     >
       <StripeAppProvider>
-        <AuthGate>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(auth)" />
-            <Stack.Screen name="(app)" />
-          </Stack>
-        </AuthGate>
+        <ToastProvider>
+          <AuthGate>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="(auth)" />
+              <Stack.Screen name="(app)" />
+            </Stack>
+          </AuthGate>
+        </ToastProvider>
       </StripeAppProvider>
     </ClerkProvider>
   )

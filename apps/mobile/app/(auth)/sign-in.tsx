@@ -6,6 +6,7 @@ import { Text } from 'react-native'
 
 import { BrandMark } from '@/components/BrandMark'
 import { Button, ErrorBanner, Field, Form, Screen } from '@/components/ui'
+import { clerkAuthErrorMessage } from '@/lib/clerkAuthError'
 import { maskEmail } from '@/lib/format'
 import { typography } from '@/lib/theme'
 
@@ -54,7 +55,7 @@ export default function SignInScreen() {
         setError(`Sign-in incomplete (${result.status})`)
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Sign-in failed')
+      setError(clerkAuthErrorMessage(err, 'Sign-in failed'))
     } finally {
       setBusy(false)
     }
@@ -75,7 +76,7 @@ export default function SignInScreen() {
         setError('Verification incomplete')
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Verification failed')
+      setError(clerkAuthErrorMessage(err, 'Verification failed'))
     } finally {
       setBusy(false)
     }
@@ -89,13 +90,15 @@ export default function SignInScreen() {
       {!pendingSecondFactor ? (
         <Form
           onSubmit={() => void onSubmit()}
-          disabled={busy || !email || !password}
+          disabled={busy || !email.trim() || !password}
         >
           <Field
             label="Email"
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
+            textContentType="emailAddress"
+            autoComplete="email"
             placeholder="you@example.com"
           />
           <Field
@@ -103,15 +106,30 @@ export default function SignInScreen() {
             value={password}
             onChangeText={setPassword}
             secureTextEntry
+            textContentType="password"
+            autoComplete="password"
           />
           <Button submit label={busy ? 'Signing in…' : 'Sign in'} />
+          <Link href="/(auth)/reset-password">
+            <Text style={typography.muted}>Forgot password?</Text>
+          </Link>
         </Form>
       ) : (
-        <Form onSubmit={() => void onVerify()} disabled={busy || !code}>
+        <Form
+          onSubmit={() => void onVerify()}
+          disabled={busy || !code.trim()}
+        >
           <Text style={typography.muted}>
             We sent a verification code to your email address {maskEmail(email)}.
           </Text>
-          <Field label="Verification code" value={code} onChangeText={setCode} />
+          <Field
+            label="Verification code"
+            value={code}
+            onChangeText={setCode}
+            keyboardType="number-pad"
+            textContentType="oneTimeCode"
+            autoComplete="one-time-code"
+          />
           <Button submit label={busy ? 'Verifying…' : 'Verify'} />
         </Form>
       )}

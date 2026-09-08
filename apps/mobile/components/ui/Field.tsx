@@ -19,7 +19,9 @@ type FieldProps = {
   placeholder?: string
   secureTextEntry?: boolean
   multiline?: boolean
-  keyboardType?: 'default' | 'decimal-pad' | 'email-address'
+  keyboardType?: 'default' | 'decimal-pad' | 'email-address' | 'number-pad'
+  textContentType?: 'none' | 'emailAddress' | 'password' | 'oneTimeCode'
+  autoComplete?: 'off' | 'email' | 'password' | 'one-time-code' | 'sms-otp'
   editable?: boolean
 }
 
@@ -31,6 +33,8 @@ export function Field({
   secureTextEntry,
   multiline,
   keyboardType = 'default',
+  textContentType,
+  autoComplete,
   editable = true,
 }: FieldProps) {
   const form = useFormContext()
@@ -59,6 +63,13 @@ export function Field({
         }
       : undefined
 
+  const autoCapitalize =
+    keyboardType === 'email-address' ||
+    keyboardType === 'number-pad' ||
+    textContentType === 'oneTimeCode'
+      ? 'none'
+      : 'sentences'
+
   return (
     <View style={styles.field}>
       <Text style={typography.label}>{label}</Text>
@@ -70,8 +81,11 @@ export function Field({
         secureTextEntry={secureTextEntry}
         multiline={multiline}
         keyboardType={keyboardType}
+        textContentType={textContentType}
+        autoComplete={autoComplete}
         editable={editable}
-        autoCapitalize={keyboardType === 'email-address' ? 'none' : 'sentences'}
+        autoCapitalize={autoCapitalize}
+        autoCorrect={textContentType === 'oneTimeCode' ? false : undefined}
         returnKeyType={form ? 'done' : undefined}
         blurOnSubmit={form ? true : !multiline}
         onSubmitEditing={
