@@ -23,6 +23,8 @@ type FieldProps = {
   textContentType?: 'none' | 'emailAddress' | 'password' | 'oneTimeCode'
   autoComplete?: 'off' | 'email' | 'password' | 'one-time-code' | 'sms-otp'
   editable?: boolean
+  /** Field-level validation message — shown directly below the input. */
+  error?: string | null
 }
 
 export function Field({
@@ -36,6 +38,7 @@ export function Field({
   textContentType,
   autoComplete,
   editable = true,
+  error = null,
 }: FieldProps) {
   const form = useFormContext()
 
@@ -91,9 +94,18 @@ export function Field({
         onSubmitEditing={
           form && Platform.OS !== 'web' ? onSubmitEditing : undefined
         }
-        style={[styles.input, multiline && styles.inputMultiline]}
+        style={[
+          styles.input,
+          multiline && styles.inputMultiline,
+          error ? styles.inputInvalid : null,
+        ]}
         {...webMultilineKeyDown}
       />
+      {error ? (
+        <Text style={styles.fieldError} accessibilityRole="alert">
+          {error}
+        </Text>
+      ) : null}
     </View>
   )
 }
@@ -112,8 +124,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.ink,
   },
+  inputInvalid: {
+    borderColor: colors.danger,
+  },
   inputMultiline: {
     minHeight: 100,
     textAlignVertical: 'top',
+  },
+  fieldError: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.danger,
   },
 })

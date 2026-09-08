@@ -5,23 +5,32 @@ import { Text } from 'react-native'
 
 import { BrandMark } from '@/components/BrandMark'
 import { Button, ErrorBanner, Field, Form, Screen } from '@/components/ui'
-import { clerkAuthErrorMessage } from '@/lib/clerkAuthError'
 import { maskEmail } from '@/lib/format'
 import { typography } from '@/lib/theme'
+import { useAuthFormErrors } from '@/lib/useAuthFormErrors'
 
 export default function SignUpScreen() {
   const { signUp, setActive, isLoaded } = useSignUp()
+  const {
+    error,
+    setError,
+    passwordError,
+    codeError,
+    clearErrors,
+    applyAuthError,
+    clearPasswordError,
+    clearCodeError,
+  } = useAuthFormErrors()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [code, setCode] = useState('')
   const [pendingVerification, setPendingVerification] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   async function onSubmit() {
     if (!isLoaded || !signUp) return
     setBusy(true)
-    setError(null)
+    clearErrors()
     try {
       await signUp.create({
         emailAddress: email.trim(),
@@ -30,7 +39,7 @@ export default function SignUpScreen() {
       await signUp.prepareEmailAddressVerification({ strategy: 'email_code' })
       setPendingVerification(true)
     } catch (err) {
-      setError(clerkAuthErrorMessage(err, 'Sign-up failed'))
+      applyAuthError(err, 'Sign-up failed')
     } finally {
       setBusy(false)
     }
@@ -39,7 +48,7 @@ export default function SignUpScreen() {
   async function onVerify() {
     if (!isLoaded || !signUp) return
     setBusy(true)
-    setError(null)
+    clearErrors()
     try {
       const result = await signUp.attemptEmailAddressVerification({
         code: code.trim(),
@@ -50,7 +59,7 @@ export default function SignUpScreen() {
         setError('Verification incomplete')
       }
     } catch (err) {
-      setError(clerkAuthErrorMessage(err, 'Verification failed'))
+      applyAuthError(err, 'Verification failed')
     } finally {
       setBusy(false)
     }
@@ -77,10 +86,14 @@ export default function SignUpScreen() {
           <Field
             label="Password"
             value={password}
-            onChangeText={setPassword}
+            onChangeText={(value) => {
+              setPassword(value)
+              clearPasswordError()
+            }}
             secureTextEntry
             textContentType="password"
             autoComplete="password"
+            error={passwordError}
           />
           <Button submit label={busy ? 'Creating…' : 'Sign up'} />
         </Form>
@@ -95,10 +108,14 @@ export default function SignUpScreen() {
           <Field
             label="Verification code"
             value={code}
-            onChangeText={setCode}
+            onChangeText={(value) => {
+              setCode(value)
+              clearCodeError()
+            }}
             keyboardType="number-pad"
             textContentType="oneTimeCode"
             autoComplete="one-time-code"
+            error={codeError}
           />
           <Button submit label={busy ? 'Verifying…' : 'Verify email'} />
         </Form>

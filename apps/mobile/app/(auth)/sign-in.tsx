@@ -6,17 +6,26 @@ import { Text } from 'react-native'
 
 import { BrandMark } from '@/components/BrandMark'
 import { Button, ErrorBanner, Field, Form, Screen } from '@/components/ui'
-import { clerkAuthErrorMessage } from '@/lib/clerkAuthError'
 import { maskEmail } from '@/lib/format'
 import { typography } from '@/lib/theme'
+import { useAuthFormErrors } from '@/lib/useAuthFormErrors'
 
 export default function SignInScreen() {
   const { signIn, setActive, isLoaded } = useSignIn()
+  const {
+    error,
+    setError,
+    passwordError,
+    codeError,
+    clearErrors,
+    applyAuthError,
+    clearPasswordError,
+    clearCodeError,
+  } = useAuthFormErrors()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [code, setCode] = useState('')
   const [pendingSecondFactor, setPendingSecondFactor] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   async function prepareEmailCodeSecondFactor(attempt: SignInResource) {
@@ -38,7 +47,7 @@ export default function SignInScreen() {
   async function onSubmit() {
     if (!isLoaded || !signIn) return
     setBusy(true)
-    setError(null)
+    clearErrors()
     try {
       const result = await signIn.create({
         identifier: email.trim(),
@@ -55,7 +64,7 @@ export default function SignInScreen() {
         setError(`Sign-in incomplete (${result.status})`)
       }
     } catch (err) {
-      setError(clerkAuthErrorMessage(err, 'Sign-in failed'))
+      applyAuthError(err, 'Sign-in failed')
     } finally {
       setBusy(false)
     }
@@ -64,7 +73,7 @@ export default function SignInScreen() {
   async function onVerify() {
     if (!isLoaded || !signIn) return
     setBusy(true)
-    setError(null)
+    clearErrors()
     try {
       const result = await signIn.attemptSecondFactor({
         strategy: 'email_code',
@@ -76,7 +85,7 @@ export default function SignInScreen() {
         setError('Verification incomplete')
       }
     } catch (err) {
-      setError(clerkAuthErrorMessage(err, 'Verification failed'))
+      applyAuthError(err, 'Verification failed')
     } finally {
       setBusy(false)
     }
@@ -104,10 +113,14 @@ export default function SignInScreen() {
           <Field
             label="Password"
             value={password}
-            onChangeText={setPassword}
+            onChangeText={(value) => {
+              setPassword(value)
+              clearPasswordError()
+            }}
             secureTextEntry
             textContentType="password"
             autoComplete="password"
+            error={passwordError}
           />
           <Button submit label={busy ? 'Signing in…' : 'Sign in'} />
           <Link href="/(auth)/reset-password">
@@ -125,10 +138,14 @@ export default function SignInScreen() {
           <Field
             label="Verification code"
             value={code}
-            onChangeText={setCode}
+            onChangeText={(value) => {
+              setCode(value)
+              clearCodeError()
+            }}
             keyboardType="number-pad"
             textContentType="oneTimeCode"
             autoComplete="one-time-code"
+            error={codeError}
           />
           <Button submit label={busy ? 'Verifying…' : 'Verify'} />
         </Form>

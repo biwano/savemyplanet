@@ -5,24 +5,33 @@ import { Text } from 'react-native'
 
 import { BrandMark } from '@/components/BrandMark'
 import { Button, ErrorBanner, Field, Form, Screen, useToast } from '@/components/ui'
-import { clerkAuthErrorMessage } from '@/lib/clerkAuthError'
 import { maskEmail } from '@/lib/format'
 import { typography } from '@/lib/theme'
+import { useAuthFormErrors } from '@/lib/useAuthFormErrors'
 
 export default function ResetPasswordScreen() {
   const { signIn, setActive, isLoaded } = useSignIn()
   const { showToast } = useToast()
+  const {
+    error,
+    setError,
+    passwordError,
+    codeError,
+    clearErrors,
+    applyAuthError,
+    clearPasswordError,
+    clearCodeError,
+  } = useAuthFormErrors()
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
   const [password, setPassword] = useState('')
   const [codeSent, setCodeSent] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   async function onSendCode() {
     if (!isLoaded || !signIn) return
     setBusy(true)
-    setError(null)
+    clearErrors()
     try {
       await signIn.create({
         strategy: 'reset_password_email_code',
@@ -30,7 +39,7 @@ export default function ResetPasswordScreen() {
       })
       setCodeSent(true)
     } catch (err) {
-      setError(clerkAuthErrorMessage(err, 'Could not send reset code'))
+      applyAuthError(err, 'Could not send reset code')
     } finally {
       setBusy(false)
     }
@@ -39,7 +48,7 @@ export default function ResetPasswordScreen() {
   async function onReset() {
     if (!isLoaded || !signIn) return
     setBusy(true)
-    setError(null)
+    clearErrors()
     try {
       const result = await signIn.attemptFirstFactor({
         strategy: 'reset_password_email_code',
@@ -53,7 +62,7 @@ export default function ResetPasswordScreen() {
         setError(`Reset incomplete (${result.status})`)
       }
     } catch (err) {
-      setError(clerkAuthErrorMessage(err, 'Could not reset password'))
+      applyAuthError(err, 'Could not reset password')
     } finally {
       setBusy(false)
     }
@@ -94,18 +103,26 @@ export default function ResetPasswordScreen() {
           <Field
             label="Verification code"
             value={code}
-            onChangeText={setCode}
+            onChangeText={(value) => {
+              setCode(value)
+              clearCodeError()
+            }}
             keyboardType="number-pad"
             textContentType="oneTimeCode"
             autoComplete="one-time-code"
+            error={codeError}
           />
           <Field
             label="New password"
             value={password}
-            onChangeText={setPassword}
+            onChangeText={(value) => {
+              setPassword(value)
+              clearPasswordError()
+            }}
             secureTextEntry
             textContentType="password"
             autoComplete="password"
+            error={passwordError}
           />
           <Button submit label={busy ? 'Resetting…' : 'Reset password'} />
         </Form>

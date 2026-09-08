@@ -17,7 +17,7 @@ mobile app  →  ClearMyCarbon backend  →  Klima x402
 ```
 
 - **Evaluate** an activity in natural language. An LLM on the backend suggests tonnes. No funded account required.
-- **Fund** via Stripe (pay in USD or EUR; balance held in USD). No crypto deposits; no user-held wallets.
+- **Fund** via Stripe (USD in the app; balance held in USD). No crypto deposits; no user-held wallets.
 - **Retire** only when the balance covers the marked-up price. The backend pays Klima from a service wallet and returns a Carbonmark certificate.
 
 ## Repository

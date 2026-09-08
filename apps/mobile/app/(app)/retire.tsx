@@ -20,18 +20,21 @@ export default function RetireScreen() {
   const [quote, setQuote] = useState<APIQuote | null>(null)
   const [retirement, setRetirement] = useState<APIRetirement | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [tonnesError, setTonnesError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   async function onQuote() {
-    setBusy(true)
     setError(null)
+    setTonnesError(null)
     setQuote(null)
     setRetirement(null)
+    const tonnesNumber = Number(tonnes)
+    if (!Number.isFinite(tonnesNumber) || tonnesNumber <= 0) {
+      setTonnesError('Enter a positive tonnage')
+      return
+    }
+    setBusy(true)
     try {
-      const tonnesNumber = Number(tonnes)
-      if (!Number.isFinite(tonnesNumber) || tonnesNumber <= 0) {
-        throw new Error('Enter a positive tonnage')
-      }
       const token = await getToken()
       if (!token) throw new Error('Missing session token')
       // Backend auto-picks cheapest liquid class when carbonClass is omitted (S2).
@@ -100,9 +103,11 @@ export default function RetireScreen() {
           value={tonnes}
           onChangeText={(value) => {
             setTonnes(value)
+            setTonnesError(null)
             setQuote(null)
           }}
           keyboardType="decimal-pad"
+          error={tonnesError}
         />
         <Field
           label="Beneficiary name"

@@ -295,7 +295,7 @@ Expo app talks **only** to our backend (config: `EXPO_PUBLIC_API_URL`). Default 
   - Home: estimate/clear CTAs; no balance or evaluations count in the body.
   - **Balance** tab (label **Balance**; tab button also shows current available USD): available balance + Add funds only — no name edit / sign out.
   - **Profile** (header icon, top right): first name, last name, **Edit**, **Sign out**.
-  - Deposit via Stripe PaymentSheet / Elements.
+  - Deposit via Stripe PaymentSheet / Elements (**USD presentment only** in the app; no EUR toggle — see [ux.md](ux.md)).
 
 ### M3. Evaluate
 

@@ -1,7 +1,6 @@
-import type { APIPresentmentCurrency } from 'api-types'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Pressable, ScrollView, Text, View } from 'react-native'
+import { ScrollView, Text } from 'react-native'
 
 import { Button, ErrorBanner, Field, Form } from '@/components/ui'
 import { publishAvailableCents } from '@/lib/accountBalanceCache'
@@ -9,7 +8,6 @@ import { ApiError, api } from '@/lib/api'
 import { hasStripePublishableKey } from '@/lib/config'
 import {
   centsToMajorInput,
-  formatPresentmentMajor,
   formatUsdCents,
   parseMajorToCents,
 } from '@/lib/format'
@@ -24,13 +22,6 @@ function parseParamCents(value: string | string[] | undefined): number | null {
   const n = Number(value)
   if (!Number.isInteger(n) || n < 0) return null
   return n
-}
-
-function parseCurrency(
-  value: string | string[] | undefined,
-): APIPresentmentCurrency {
-  if (typeof value === 'string' && value.toLowerCase() === 'eur') return 'eur'
-  return 'usd'
 }
 
 async function waitForBalanceIncrease(
@@ -51,12 +42,10 @@ export default function DepositScreen() {
   const params = useLocalSearchParams<{
     amountCents?: string
     shortfallCents?: string
-    currency?: string
   }>()
   const { requireToken } = useAuthRefresh()
 
   const shortfallCents = parseParamCents(params.shortfallCents)
-  const initialCurrency = parseCurrency(params.currency)
   const suggestedCents = useMemo(() => {
     const fromParam = parseParamCents(params.amountCents)
     if (fromParam != null) return Math.max(fromParam, MIN_CENTS)
@@ -64,12 +53,11 @@ export default function DepositScreen() {
     return MIN_CENTS
   }, [params.amountCents, shortfallCents])
 
-  const [currency, setCurrency] =
-    useState<APIPresentmentCurrency>(initialCurrency)
   const [amountMajor, setAmountMajor] = useState(centsToMajorInput(suggestedCents))
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [availableBefore, setAvailableBefore] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [amountError, setAmountError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -82,6 +70,7 @@ export default function DepositScreen() {
 
   async function onStartPay() {
     setError(null)
+    setAmountError(null)
     setSuccessMessage(null)
     if (!hasStripePublishableKey()) {
       setError('EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY is not set')
@@ -89,9 +78,7 @@ export default function DepositScreen() {
     }
     const cents = parseMajorToCents(amountMajor)
     if (cents == null || cents < MIN_CENTS) {
-      setError(
-        `Minimum deposit is ${formatPresentmentMajor(5, currency)}`,
-      )
+      setAmountError('Minimum deposit is $5.00')
       return
     }
     setBusy(true)
@@ -99,7 +86,7 @@ export default function DepositScreen() {
       const token = await requireToken()
       const account = await api.account(token)
       setAvailableBefore(account.available)
-      const res = await api.deposit(token, { amount: cents, currency })
+      const res = await api.deposit(token, { amount: cents, currency: 'usd' })
       setClientSecret(res.clientSecret)
     } catch (err) {
       setError(
@@ -157,9 +144,6 @@ export default function DepositScreen() {
       keyboardShouldPersistTaps="handled"
     >
       <Text style={typography.title}>Add funds</Text>
-      <Text style={typography.muted}>
-        Pay in USD or EUR. Your balance is always held in USD.
-      </Text>
 
       {shortfallCents != null && shortfallCents > 0 ? (
         <Text style={typography.body}>
@@ -179,59 +163,27 @@ export default function DepositScreen() {
           onCancel={() => setClientSecret(null)}
         />
       ) : (
-        <>
-          <Text style={typography.label}>Currency</Text>
-          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-            {(['usd', 'eur'] as const).map((c) => {
-              const selected = currency === c
-              return (
-                <Pressable
-                  key={c}
-                  accessibilityRole="button"
-                  onPress={() => setCurrency(c)}
-                  style={{
-                    flex: 1,
-                    paddingVertical: 12,
-                    alignItems: 'center',
-                    borderRadius: 8,
-                    borderWidth: 1,
-                    borderColor: selected ? colors.accent : colors.line,
-                    backgroundColor: selected
-                      ? colors.accentSoft
-                      : colors.surface,
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontWeight: '600',
-                      color: selected ? colors.accent : colors.ink,
-                    }}
-                  >
-                    {c.toUpperCase()}
-                  </Text>
-                </Pressable>
-              )
-            })}
-          </View>
+        <Form
+          onSubmit={() => void onStartPay()}
+          disabled={busy || !!successMessage}
+        >
+          <Field
+            label="Amount (USD)"
+            value={amountMajor}
+            onChangeText={(value) => {
+              setAmountMajor(value)
+              setAmountError(null)
+            }}
+            keyboardType="decimal-pad"
+            placeholder="5.00"
+            error={amountError}
+          />
+          {!amountError ? (
+            <Text style={typography.muted}>At least $5.00</Text>
+          ) : null}
 
-          <Form
-            onSubmit={() => void onStartPay()}
-            disabled={busy || !!successMessage}
-          >
-            <Field
-              label="Amount"
-              value={amountMajor}
-              onChangeText={setAmountMajor}
-              keyboardType="decimal-pad"
-              placeholder="5.00"
-            />
-            <Text style={typography.muted}>
-              At least {formatPresentmentMajor(5, currency)}
-            </Text>
-
-            <Button submit label={busy ? 'Starting…' : 'Pay'} />
-          </Form>
-        </>
+          <Button submit label={busy ? 'Starting…' : 'Pay'} />
+        </Form>
       )}
     </ScrollView>
   )

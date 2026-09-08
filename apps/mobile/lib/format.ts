@@ -1,16 +1,3 @@
-import type { APIPresentmentCurrency } from 'api-types'
-
-/** Format presentment major units for hints (e.g. 5 → "$5.00" / "€5.00"). */
-export function formatPresentmentMajor(
-  major: number,
-  currency: APIPresentmentCurrency,
-): string {
-  return new Intl.NumberFormat(currency === 'eur' ? 'de-DE' : 'en-US', {
-    style: 'currency',
-    currency: currency.toUpperCase(),
-  }).format(major)
-}
-
 /** Format USD cents as a display string (e.g. 1234 → "$12.34"). */
 export function formatUsdCents(cents: number): string {
   return new Intl.NumberFormat('en-US', {

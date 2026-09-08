@@ -79,8 +79,8 @@ Tabs stay at three (**Home · History · Balance**). Profile and early Evaluate 
 
 - Send code (non-empty email) → Clerk starts reset (`reset_password_email_code`); on success show step 2.
 - Reset (code + password) → Clerk verifies and sets the new password; on `complete`, activate the new session → **Home**, and show a temporary **bottom success toast**: **Password updated** (auto-dismiss after a few seconds; does not block taps). The toast may appear on Home after the auth redirect — same message either way.
-- Incorrect verification code → inline error: **Incorrect verification code. Please check your email and try again.** Stay on step 2.
-- Invalid / expired code (other) or weak password → inline error; stay on the current step.
+- Incorrect verification code → field error under Verification code: **Incorrect verification code. Please check your email and try again.** Stay on step 2.
+- Invalid / expired code (other) → field error under Verification code; stay on step 2. Weak password → field error under New password; stay on step 2. Other failures → form summary above the fields.
 - Back to sign in → Sign-in (discard in-progress reset).
 
 **Not here**
@@ -137,7 +137,7 @@ Tabs stay at three (**Home · History · Balance**). Profile and early Evaluate 
 **Interactions**
 
 - Submit with non-empty text → loading (tolerate cold start) → **Evaluate result** on success.
-- Ambiguous / failed LLM → inline error; quota **unchanged**; stay on this screen.
+- Ambiguous / failed LLM → form summary error above the activity field; quota **unchanged**; stay on this screen.
 - Quota already 0 → do not call API; show **Quota empty**.
 - Back → Home.
 - Tab bar remains visible on this screen (and on **Quota empty**).
@@ -261,7 +261,7 @@ Skip this screen when arriving from Evaluate result with a confirmed amount (sti
 **Interactions**
 
 - On appear (or on Continue from Class): `POST /quotes` with tonnes + class. Show spinner until quote returns. If quote fails, error + retry.
-- If `available < userTotal`: primary becomes **Add funds to continue** → **Deposit** with suggested amount = **max(shortfall, $5 / €5 minimum)** for the chosen presentment currency. After successful deposit, **return to this Confirm screen** with fields still prefilled; refresh quote/balance.
+- If `available < userTotal`: primary becomes **Add funds to continue** → **Deposit** with suggested amount = **max(shortfall, $5.00 minimum)** (USD). After successful deposit, **return to this Confirm screen** with fields still prefilled; refresh quote/balance.
 - If quote expired before confirm: refresh quote automatically once, or prompt to refresh; never clear on a stale id.
 - Confirm → disable button → **Clear · Progress** (`POST /retirements`).
 - Insufficient funds error from API → same deposit handoff.
@@ -404,27 +404,26 @@ Skip this screen when arriving from Evaluate result with a confirmed amount (sti
 
 ### 14. Deposit
 
-**Purpose.** Fund the USD balance via Stripe. Minimum $5 or €5.
+**Purpose.** Fund the USD balance via Stripe. Minimum $5.00. The app is **USD-only** in the UI — no currency picker.
 
 **Content**
 
 - Title: Add funds.
-- Amount field (major units).
-- Currency toggle: USD | EUR (presentment only; balance remains USD).
-- Minimum hint: at least $5.00 or €5.00.
-- When opened from insufficient funds: prefill suggested amount as **max(shortfall, minimum)** — never below **$5.00** / **€5.00** (match the selected presentment currency). Show “Needed for this clearing: $X” (shortfall) even when the prefill is higher because of the minimum.
-- Primary: **Pay** → Stripe PaymentSheet / Checkout flow.
-- After success: brief confirmation (“$Y added” in USD equivalent as returned by account refresh) → **return the user to where they came from**, preserving that screen’s state:
+- Amount field (USD major units). No currency toggle.
+- Minimum hint: at least $5.00.
+- When opened from insufficient funds: prefill suggested amount as **max(shortfall, $5.00)** — never below **$5.00**. Show “Needed for this clearing: $X” (shortfall) even when the prefill is higher because of the minimum.
+- Primary: **Pay** → Stripe PaymentSheet / Checkout flow (presentment **usd**).
+- After success: brief confirmation (“$Y added”) → **return the user to where they came from**, preserving that screen’s state:
   - From Clear · Confirm (insufficient funds) → back to **Confirm** with the same tonnes, class, attribution, and message still filled; refresh balance/quote.
   - From Balance → back to **Balance**.
   - From Home (if Add funds is offered there) → back to **Home**.
 
 **Interactions**
 
-- Validate minimum before calling `POST /account/deposit`.
+- Validate minimum ($5.00) before calling `POST /account/deposit` with `currency: usd`.
 - Cancel Stripe / abandon Checkout → stay on Deposit (or return to caller without changing balance — same origin rule).
-- Failure → inline error, retry.
-- No crypto deposit options.
+- Failure → form summary error above the fields, retry.
+- No crypto deposit options; no EUR (or other) presentment choice in the app.
 - Deep link / return URL from Stripe Checkout must restore the **same entry route** (e.g. confirm with params/session), not a generic Home redirect.
 
 ---
@@ -439,7 +438,7 @@ Skip this screen when arriving from Evaluate result with a confirmed amount (sti
 | Tab bar       | Home · History · **Balance** (signed-in only). Each tab has a simple icon above the label (home / history / wallet or similar — not the person mark; that is header-only for Profile). The Balance tab label is **Balance**; the button also shows the **current available balance** (USD from `GET /account`, compact e.g. `$12.34`) so funding status is visible without opening the tab. Active tint uses brand accent; inactive is muted. Selected tab sits on a soft light-green pill (`accentSoft`) behind icon + label — not a harsh full-width block. Add a little bottom padding (and respect the safe-area inset) so icons and labels are not flush with the screen edge. **Visibility:** show on the three tabs, on **Profile**, and on **early Evaluate** (activity input and **Quota empty**). Hide on **Evaluate result** and for the rest of the clear / deposit / progress / certificate tunnel. While on Profile or early Evaluate, none of the three tab buttons is “selected” (all inactive/muted) — that is fine; do not invent a fourth tab highlight. |
 | Auth gate     | Any deep link into evaluate/clear without session → Welcome, then resume intent if practical.                                                                                                            |
 | Cold start    | First API call may spin longer; prefer retry with message over instant hard fail.                                                                                                                        |
-| Errors        | Inline on the screen that caused them; use `{ error }` copy when safe. Never show wholesale fields. Auth verification-code failures (sign-in MFA, sign-up, reset password): prefer **Incorrect verification code. Please check your email and try again.** over raw Clerk “Incorrect code”. |
+| Errors        | Inline on the screen that caused them; never toasts; never wholesale fields. **Placement:** (1) **Field** validation (empty, min amount, weak password, incorrect verification code, invalid tonnes, etc.) → text **directly below** that field. (2) **Form / screen** failures (API, auth that isn’t tied to one field, load errors) → a single summary banner **above** the form fields (or at the top of the screen body for non-forms). Do not duplicate the same message in both places. Use `{ error }` copy when safe. Auth verification-code failures (sign-in MFA, sign-up, reset password): prefer **Incorrect verification code. Please check your email and try again.** under the code field. |
 | Success toast | Ephemeral confirmation at the **bottom** of the content area — **above the tab bar** when the tab bar is visible (tabs, Profile, early Evaluate); never covers Home / History / Balance. Light green (`accentSoft`) with accent text. Auto-dismisses; not a modal. First use: password reset success (**Password updated**). Do not use for errors (those stay inline). |
 | Connectivity  | Offline: disable primary submits; show a single banner.                                                                                                                                                  |
 | Form submit   | **Enter** on any text field in a form runs the screen’s **primary** CTA (same enablement rules as the button). Never bind Enter to Cancel, Sign out, or other secondary/destructive actions. Multiline: Enter submits; Shift+Enter inserts a newline when supported. |
@@ -527,7 +526,7 @@ Sign-in → Forgot password? → Reset password (email → code + new password)
 - Primary verb in the UI: **clear** / **clearing** / **cleared** (brand-aligned, emotional). Never lead with “offset.”
 - Under the hood the product still **retires** credits (API paths, Klima, certificates). Keep `retire` / `retirement` in code, docs that describe mechanics, and field names (`retirementMessage`, `/retirements`). Do not put “retire” on buttons or headlines unless precision truly requires it.
 - Say **estimate** for the LLM step; reserve **confirm** for the irreversible action.
-- Money: always show user-facing USD totals from our API. If they paid in EUR, after deposit speak in USD balance (“About $X added”) once `/account` refreshes — do not invent FX UI beyond Stripe’s presentment choice.
+- Money: **USD only** in the UI — balances, quotes, deposit amount, and success copy. Do not show a currency toggle or EUR amounts. Card networks may still bill the cardholder in their local currency; we do not surface that FX in the app.
 - Permanence warning appears **once**, on Confirm — not on every prior step.
 - Avoid explaining markup, Klima, or Base unless the user opens an optional About later (out of v1 scope).
 
@@ -542,6 +541,7 @@ Sign-in → Forgot password? → Reset password (email → code + new password)
 - Admin credit UI
 - Marketing site inside the app
 - Push notifications for `pending_index` → settled (poll on Detail/History is enough)
+- EUR (or multi-currency) presentment picker in the app — deposits are USD-only in the UI
 
 ---
 
