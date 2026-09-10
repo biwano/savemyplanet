@@ -16,6 +16,17 @@ export function formatTonnes(tonnes: number): string {
   return `${body} t`
 }
 
+/**
+ * Format tonnes for editable amounts / evaluate suggestion (up to 6 dp,
+ * matching the evaluate prompt). Does not round small values to zero.
+ */
+export function formatTonnesExact(tonnes: number): string {
+  if (!Number.isFinite(tonnes) || tonnes <= 0) return '0'
+  const rounded = Math.round(tonnes * 1e6) / 1e6
+  if (Number.isInteger(rounded)) return String(rounded)
+  return rounded.toFixed(6).replace(/\.?0+$/, '')
+}
+
 export function parseMajorToCents(raw: string): number | null {
   const normalized = raw.trim().replace(',', '.')
   if (!normalized) return null

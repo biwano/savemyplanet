@@ -42,10 +42,13 @@ export default function DepositScreen() {
   const params = useLocalSearchParams<{
     amountCents?: string
     shortfallCents?: string
+    /** Clear · Confirm sets `returnTo=confirm` so success pops back; do not infer from shortfall. */
+    returnTo?: string
   }>()
   const { requireToken } = useAuthRefresh()
   const { showToast } = useToast()
 
+  const returnToConfirm = params.returnTo === 'confirm'
   const shortfallCents = parseParamCents(params.shortfallCents)
   const suggestedCents = useMemo(() => {
     const fromParam = parseParamCents(params.amountCents)
@@ -109,8 +112,9 @@ export default function DepositScreen() {
           : 'Payment received — balance will update shortly',
       )
       setClientSecret(null)
-      if (router.canGoBack()) router.back()
-      else router.replace('/(app)/(tabs)/funds')
+      // Clear · Confirm passes returnTo=confirm (+ shortfall for prefill); else Home.
+      if (returnToConfirm && router.canGoBack()) router.back()
+      else router.replace('/(app)/(tabs)')
     } catch (err) {
       setError(
         err instanceof ApiError

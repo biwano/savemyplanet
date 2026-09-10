@@ -1,6 +1,6 @@
 import { useAuth } from '@clerk/expo'
 import type { APIQuote, APIRetirement } from 'api-types'
-import { useLocalSearchParams } from 'expo-router'
+import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useState } from 'react'
 import { Linking, Text, View } from 'react-native'
 
@@ -9,14 +9,40 @@ import { ApiError, api } from '@/lib/api'
 import { formatUsdCents } from '@/lib/format'
 import { colors, spacing, typography } from '@/lib/theme'
 
+const MIN_DEPOSIT_CENTS = 500
+
+function insufficientFundsShortfall(err: ApiError, requiredFallback: number): number {
+  const details = err.body.details
+  let available = 0
+  let required = requiredFallback
+  if (details && typeof details === 'object') {
+    if (
+      'available' in details &&
+      typeof (details as { available: unknown }).available === 'number'
+    ) {
+      available = (details as { available: number }).available
+    }
+    if (
+      'required' in details &&
+      typeof (details as { required: unknown }).required === 'number'
+    ) {
+      required = (details as { required: number }).required
+    }
+  }
+  return Math.max(0, required - available)
+}
+
 export default function RetireScreen() {
   const { getToken } = useAuth()
-  const params = useLocalSearchParams<{ tonnes?: string }>()
+  const router = useRouter()
+  const params = useLocalSearchParams<{ tonnes?: string; message?: string }>()
   const [tonnes, setTonnes] = useState(
     typeof params.tonnes === 'string' ? params.tonnes : '0.1',
   )
   const [beneficiaryString, setBeneficiaryString] = useState('ClearMyCarbon')
-  const [message, setMessage] = useState('')
+  const [message, setMessage] = useState(
+    typeof params.message === 'string' ? params.message : '',
+  )
   const [quote, setQuote] = useState<APIQuote | null>(null)
   const [retirement, setRetirement] = useState<APIRetirement | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -66,18 +92,25 @@ export default function RetireScreen() {
       })
       setRetirement(result)
     } catch (err) {
-      const code = err instanceof ApiError ? err.message : null
-      if (code === 'insufficient_funds') {
-        setError('Insufficient funds — add money to your account, then try again.')
-      } else {
-        setError(
-          err instanceof ApiError
-            ? err.message
-            : err instanceof Error
-              ? err.message
-              : 'Retirement failed',
-        )
+      if (err instanceof ApiError && err.message === 'insufficient_funds') {
+        const shortfallCents = insufficientFundsShortfall(err, quote.userTotal)
+        router.push({
+          pathname: '/(app)/deposit',
+          params: {
+            returnTo: 'confirm',
+            shortfallCents: String(shortfallCents),
+            amountCents: String(Math.max(shortfallCents, MIN_DEPOSIT_CENTS)),
+          },
+        })
+        return
       }
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Retirement failed',
+      )
     } finally {
       setBusy(false)
     }

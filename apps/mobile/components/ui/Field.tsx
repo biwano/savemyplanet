@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import {
   Platform,
   StyleSheet,
@@ -25,6 +26,10 @@ type FieldProps = {
   editable?: boolean
   /** Field-level validation message — shown directly below the input. */
   error?: string | null
+  /** Control to the right of the label (e.g. help). */
+  labelAccessory?: ReactNode
+  /** Sentence-case label instead of the default uppercase chrome label. */
+  labelSentenceCase?: boolean
 }
 
 export function Field({
@@ -39,32 +44,18 @@ export function Field({
   autoComplete,
   editable = true,
   error = null,
+  labelAccessory,
+  labelSentenceCase = false,
 }: FieldProps) {
   const form = useFormContext()
 
   function onSubmitEditing(
     _e: NativeSyntheticEvent<TextInputSubmitEditingEventData>,
   ) {
+    // Textareas never submit on Enter — only single-line fields do.
+    if (multiline) return
     form?.submit()
   }
-
-  // Web multiline <textarea> does not submit forms on Enter; intercept so Enter
-  // runs the form CTA (Shift+Enter keeps a newline). Single-line uses native
-  // form submit via the submit button.
-  const webMultilineKeyDown =
-    Platform.OS === 'web' && form && multiline
-      ? {
-          onKeyDown: (e: {
-            key: string
-            shiftKey: boolean
-            preventDefault: () => void
-          }) => {
-            if (e.key !== 'Enter' || e.shiftKey) return
-            e.preventDefault()
-            form.submit()
-          },
-        }
-      : undefined
 
   const autoCapitalize =
     keyboardType === 'email-address' ||
@@ -75,7 +66,17 @@ export function Field({
 
   return (
     <View style={styles.field}>
-      <Text style={typography.label}>{label}</Text>
+      <View style={styles.labelRow}>
+        <Text
+          style={[
+            labelSentenceCase ? styles.labelSentence : typography.label,
+            styles.labelText,
+          ]}
+        >
+          {label}
+        </Text>
+        {labelAccessory}
+      </View>
       <TextInput
         value={value}
         onChangeText={onChangeText}
@@ -89,17 +90,19 @@ export function Field({
         editable={editable}
         autoCapitalize={autoCapitalize}
         autoCorrect={textContentType === 'oneTimeCode' ? false : undefined}
-        returnKeyType={form ? 'done' : undefined}
-        blurOnSubmit={form ? true : !multiline}
+        returnKeyType={form && !multiline ? 'done' : undefined}
+        // Multiline: Enter inserts a newline. Single-line in a form: Enter submits.
+        blurOnSubmit={!multiline}
         onSubmitEditing={
-          form && Platform.OS !== 'web' ? onSubmitEditing : undefined
+          form && !multiline && Platform.OS !== 'web'
+            ? onSubmitEditing
+            : undefined
         }
         style={[
           styles.input,
           multiline && styles.inputMultiline,
           error ? styles.inputInvalid : null,
         ]}
-        {...webMultilineKeyDown}
       />
       {error ? (
         <Text style={styles.fieldError} accessibilityRole="alert">
@@ -113,6 +116,21 @@ export function Field({
 const styles = StyleSheet.create({
   field: {
     gap: spacing.xs,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.xs,
+    rowGap: spacing.xs,
+  },
+  labelText: {
+    flexShrink: 1,
+  },
+  labelSentence: {
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '600',
+    color: colors.ink,
   },
   input: {
     borderWidth: 1,

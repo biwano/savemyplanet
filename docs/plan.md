@@ -299,12 +299,12 @@ Expo app talks **only** to our backend (config: `EXPO_PUBLIC_API_URL`). Default 
 
 ### M3. Evaluate
 
-- [ ] **Done when:** suggestion appears without a funded account (auth still required if the API requires it; if we want evaluate logged-out, add that to the contract **before** this screen).
+- [x] **Done when:** suggestion appears without a funded account (auth still required if the API requires it; if we want evaluate logged-out, add that to the contract **before** this screen).
 
-- [ ] Text field for the activity.
-- [ ] Show `suggestedTonnes` + rationale; update remaining count from the response.
-- [ ] Prefill the retirement amount; user can edit.
-- [ ] When quota is zero: disable evaluate (or show clear error) and nudge toward retirement to reset.
+- [x] Text field for the activity.
+- [x] Show `suggestedTonnes` + rationale; update remaining count from the response.
+- [x] Prefill the retirement amount; user can edit.
+- [x] When quota is zero: disable evaluate (or show clear error) and nudge toward retirement to reset.
 
 Default: evaluation requires auth (simpler). Logged-out evaluate is a later contract change.
 
@@ -536,7 +536,7 @@ EIP-3009 / Klima `salt` is **out of scope** to “fix”: we do not mint nonces;
 - [ ] *Freeze API table*
 - [x] M1 app shell
 - [x] M2 auth (Clerk) + Funds / profile / deposit
-- [ ] M3 evaluate (LLM)
+- [x] M3 evaluate (LLM)
 - [ ] M4–M5 retire UX (classes) + certificate
 - [ ] M6 EAS preview (staging API + web)
 - [x] *Side:* T0–T1 endpoint test catch-up (parallel OK) — T0–T1 done

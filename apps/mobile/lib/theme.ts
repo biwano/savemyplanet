@@ -9,6 +9,8 @@ export const colors = {
   line: '#d5e0d8',
   accent: '#1f6b4a',
   accentSoft: '#e4f2ea',
+  /** Soft gray surfaces (info / non-destructive form summaries). */
+  soft: '#e6ebe8',
   danger: '#9b2c2c',
   dangerSoft: '#fde8e8',
 } as const

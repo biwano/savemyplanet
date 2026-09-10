@@ -10,7 +10,7 @@ Mobile UX for **ClearMyCarbon**. Product rules: [product.md](product.md). API su
 4. **Suggestion, not decree.** The LLM estimate is editable. The user owns the final tonnage.
 5. **Fund only when it matters.** Evaluation works with a zero balance. Prompt to deposit at the moment clearing would fail, not before.
 6. **Quota motivates without nagging.** Show remaining evaluations on the Evaluate flow. At zero, the path forward is clear (which resets to 10), not “buy more evaluations.”
-7. **Enter submits.** Forms use a shared submit action: pressing **Enter** (or the primary CTA) runs that action when it would be enabled by tap — not a secondary or destructive control. Multiline fields follow the same rule (Enter submits; Shift+Enter for a newline where the platform allows).
+7. **Enter submits.** Forms use a shared submit action: pressing **Enter** on a **single-line** field (or the primary CTA) runs that action when it would be enabled by tap — not a secondary or destructive control. **Multiline / textarea fields do not submit on Enter** — Enter inserts a newline; the user taps the primary CTA to submit.
 8. **Busy CTAs show a ripple spinner, not mutating copy.** While a primary action is in flight, keep the button’s accessible name as the stable action label (e.g. **Add funds**, **Sign in**) and show an indeterminate **ripple** indicator in place of the label. Do not swap the visible/accessible text to “Starting…”, “Signing in…”, etc. Disable the control and expose busy state to assistive tech.
 
 ## Information architecture
@@ -128,17 +128,16 @@ Tabs stay at three (**Home · History · Funds**). Profile and early Evaluate ar
 
 **Content**
 
-- Title: Estimate carbon emissions.
-- Remaining count: “N evaluations left”.
-- Multiline text field: activity description. Placeholder examples rotate lightly (e.g. “I flew Paris → New York round trip”, “Drove 400 km this month”).
-- Formulation help (above or below the field): Include concrete metrics when you can — distance or route, duration, number of people, vehicle or cabin class, frequency (e.g. “2 people, Paris → NYC economy round trip”, “drove 400 km alone in a petrol car”). More detail → better estimate.
+- No screen title in the body (brand stays in the header).
+- Multiline text field. Label: **Describe the activity that emitted carbon emissions**, with a help control on the right that opens a short modal (**Writing a good description**): ask for concrete details (distance or route, duration, number of people, vehicle or cabin class, how often); give example phrases; note that more detail yields a better estimate.
+- Remaining count below **Estimate**: “N evaluations left”.
+- Placeholder examples rotate lightly (mix of home energy, food, purchases, and transport — e.g. “I heated my apartment with gas for the whole winter.”, “I flew from Paris to New York round trip.”).
 - Primary: **Estimate**.
-- Helper: estimates are approximate; you’ll confirm the final amount before clearing.
 
 **Interactions**
 
-- Submit with non-empty text → loading (tolerate cold start) → **Evaluate result** on success.
-- Ambiguous / failed LLM → form summary error above the activity field; quota **unchanged**; stay on this screen.
+- Submit with non-empty text (tap **Estimate**) → loading (tolerate cold start) → **Evaluate result** on success. The activity field is a **textarea**: **Enter** inserts a newline and does **not** run Estimate.
+- Ambiguous LLM (`evaluation_ambiguous`) → form summary above the activity field on a **soft gray** banner (not danger red). The API rationale (when present) must **name the specific missing details** to add (e.g. hours of use, distance, fuel type)—not only a ballpark figure—then the UI can append a short **try again** cue; quota **unchanged**; stay on this screen. Other LLM failures → same neutral summary style; same stay/quota rules.
 - Quota already 0 → do not call API; show **Quota empty**.
 - Back → Home.
 - Tab bar remains visible on this screen (and on **Quota empty**).
@@ -155,18 +154,20 @@ Tabs stay at three (**Home · History · Funds**). Profile and early Evaluate ar
 
 **Content**
 
+- Label: **Emissions estimation** (not “Suggested”), with a help control beside it that opens a short modal explaining that the figure is an **AI estimate only** — approximate guidance, not a measurement of real emissions — and that the user chooses the final amount before clearing.
 - Suggested tonnes (prominent).
 - Short rationale from the API (readable, not raw model dump).
 - Editable tonnes field (pre-filled with `suggestedTonnes`).
-- Updated “N evaluations left” from the response.
-- Primary: **Continue to clear**.
-- Secondary: **Estimate something else** (back to Evaluate, fresh field).
-- Tertiary: Done / close → Home (keep the suggestion only if we stash it in session for Clear; otherwise discard).
+- Primary: **Clear those emissions**.
+- Secondary: **Estimate another activity** (back to Evaluate, fresh field).
+- No Done / close control — leave via back, tabs (if any), or continuing into Clear.
+- Updated “N evaluations left” from the response, **below the buttons**.
 
 **Interactions**
 
-- Edit tonnes → Continue uses the edited value (client validation: ≥ 0.001).
-- Continue → **Clear · Amount** with tonnes prefilled (skip re-entry), then class; also carry the original activity text into Confirm as a prefilled **message** (`retirementMessage`) — user can edit or clear it.
+- Help beside **Emissions estimation** → modal (AI estimate disclaimer); dismiss via Close or backdrop.
+- Edit tonnes → **Clear those emissions** uses the edited value (client validation: ≥ 0.001).
+- Clear those emissions → **Clear · Amount** with tonnes prefilled (skip re-entry), then class; also carry the original activity text into Confirm as a prefilled **message** (`retirementMessage`) — user can edit or clear it.
 - Prefer stacking: Result → Class (amount already set) to shorten the path. If amount must be revisited, insert Amount as an editable step with prefill.
 
 **Recommended path after result:** Result (edit OK) → **Class** → **Confirm** (amount + message carried forward).
@@ -262,7 +263,7 @@ Skip this screen when arriving from Evaluate result with a confirmed amount (sti
 **Interactions**
 
 - On appear (or on Continue from Class): `POST /quotes` with tonnes + class. Show spinner until quote returns. If quote fails, error + retry.
-- If `available < userTotal`: primary becomes **Add funds to continue** → **Deposit** with suggested amount = **max(shortfall, $5.00 minimum)** (USD). After successful deposit, **return to this Confirm screen** with fields still prefilled; refresh quote/balance.
+- If `available < userTotal`: primary becomes **Add funds to continue** → **Deposit** with `returnTo=confirm`, suggested amount = **max(shortfall, $5.00 minimum)** (USD), and shortfall for the “Needed…” hint. After successful deposit, **return to this Confirm screen** with fields still prefilled; refresh quote/balance.
 - If quote expired before confirm: refresh quote automatically once, or prompt to refresh; never clear on a stale id.
 - Confirm → disable button → **Clear · Progress** (`POST /retirements`).
 - Insufficient funds error from API → same deposit handoff.
@@ -413,10 +414,9 @@ Skip this screen when arriving from Evaluate result with a confirmed amount (sti
 - Minimum hint: at least $5.00.
 - When opened from insufficient funds: prefill suggested amount as **max(shortfall, $5.00)** — never below **$5.00**. Show “Needed for this clearing: $X” (shortfall) even when the prefill is higher because of the minimum.
 - Primary: **Add funds** → Stripe PaymentSheet / Checkout flow (presentment **usd**).
-- After success: bottom success toast (“$Y added to your account”) → **return the user to where they came from**, preserving that screen’s state:
-  - From Clear · Confirm (insufficient funds) → back to **Confirm** with the same tonnes, class, attribution, and message still filled; refresh balance/quote.
-  - From Funds → back to **Funds**.
-  - From Home (if Add funds is offered there) → back to **Home**.
+- After success: bottom success toast (“$Y added to your account”) → navigate as follows:
+  - From Clear · Confirm (insufficient funds / retire flow): open Deposit with `returnTo=confirm` (and shortfall/amount params as needed) → on success, back to **Confirm** with the same tonnes, class, attribution, and message still filled; refresh balance/quote. Do **not** treat `shortfallCents` alone as the return signal.
+  - Otherwise (Funds, Home, or any non-clear entry) → **Home**.
 
 **Interactions**
 
@@ -441,7 +441,7 @@ Skip this screen when arriving from Evaluate result with a confirmed amount (sti
 | Errors        | Inline on the screen that caused them; never toasts; never wholesale fields. **Placement:** (1) **Field** validation (empty, min amount, weak password, incorrect verification code, invalid tonnes, etc.) → text **directly below** that field. (2) **Form / screen** failures (API, auth that isn’t tied to one field, load errors) → a single summary banner **above** the form fields (or at the top of the screen body for non-forms). Do not duplicate the same message in both places. Use `{ error }` copy when safe. Auth verification-code failures (sign-in MFA, sign-up, reset password): prefer **Incorrect verification code. Please check your email and try again.** under the code field. |
 | Success toast | Ephemeral confirmation at the **bottom** of the content area — **above the tab bar** when the tab bar is visible (tabs, Profile, early Evaluate); never covers Home / History / Funds. Light green (`accentSoft`) with accent text. Auto-dismisses; not a modal. Uses: password reset success (**Password updated**); deposit success (**$Y added to your account**, or “Payment received — balance will update shortly” if the balance has not refreshed yet). Toast may appear on the screen after navigation. Do not use for errors (those stay inline). |
 | Connectivity  | Offline: disable primary submits; show a single banner.                                                                                                                                                  |
-| Form submit   | **Enter** on any text field in a form runs the screen’s **primary** CTA (same enablement rules as the button). Never bind Enter to Cancel, Sign out, or other secondary/destructive actions. Multiline: Enter submits; Shift+Enter inserts a newline when supported. |
+| Form submit   | **Enter** on a **single-line** text field in a form runs the screen’s **primary** CTA (same enablement rules as the button). **Multiline / textarea fields never submit on Enter** (Enter = newline); the user taps the primary CTA. Never bind Enter to Cancel, Sign out, or other secondary/destructive actions. Do **not** treat an inserted newline character as a submit signal. |
 | Busy buttons  | In-flight primary CTAs: **ripple spinner only** (no “Signing in…” / “Getting quote…” label swap). Stable `accessibilityLabel` = the idle action name; mark the control disabled + busy (`accessibilityState.busy` / `aria-busy`). Full-screen or section spinners (cold start, quote load before Confirm, Progress) stay as they are — this row is about the CTA itself. |
 
 
@@ -464,7 +464,7 @@ Quota decrements on successful Estimate. Quota resets to 10 when clearing settle
 ### B. Estimate only (no money yet)
 
 ```
-Home → Evaluate → Result → Done → Home
+Home → Evaluate → Result → (back) → Home
 ```
 
 User may leave with a mental note (or we keep last suggestion in session for “Clear” prefill). Funds can stay $0.
