@@ -81,6 +81,7 @@ describe('rate limiting', () => {
       mockEvaluateLlm({
         suggestedTonnes: 0.01,
         rationale: 'test',
+        suggestedRetirementMessage: 'Clearing test emissions.',
         ambiguous: false,
       })
     })

@@ -167,7 +167,7 @@ Tabs stay at three (**Home · History · Funds**). Profile and early Evaluate ar
 
 - Help beside **Emissions estimation** → modal (AI estimate disclaimer); dismiss via Close or backdrop.
 - Edit tonnes → **Clear those emissions** uses the edited value (client validation: ≥ 0.001).
-- Clear those emissions → **Clear · Amount** with tonnes prefilled (skip re-entry), then class; also carry the original activity text into Confirm as a prefilled **message** (`retirementMessage`) — user can edit or clear it.
+- Clear those emissions → **Clear · Amount** with tonnes prefilled (skip re-entry), then class; also carry the LLM **suggested retirement message** into Confirm as a prefilled **message** (`retirementMessage`) — user can edit or clear it.
 - Prefer stacking: Result → Class (amount already set) to shorten the path. If amount must be revisited, insert Amount as an editable step with prefill.
 
 **Recommended path after result:** Result (edit OK) → **Class** → **Confirm** (amount + message carried forward).
@@ -253,7 +253,7 @@ Skip this screen when arriving from Evaluate result with a confirmed amount (sti
   - Quote expiry (if close: “Price holds until …”)
 - Attribution:
   - **Name on certificate** (`beneficiaryString`) — text field, required. Prefill with Clerk first + last name when set, else email local-part; user can edit.
-  - Optional **message** (`retirementMessage`). When arriving from Evaluate, prefill with the activity text the user submitted; otherwise empty. Editable.
+  - Optional **message** (`retirementMessage`). When arriving from Evaluate, prefill with the LLM `suggestedRetirementMessage` from that evaluation; otherwise empty. Editable.
   - No wallet field. Do not show `beneficiaryAddress` unless we later add an advanced “technical details” disclosure; default is hide.
 - Funds line: Available $X · After clearing $Y (or “Need $Z more”).
 - Warning: Clearing cannot be undone. The certificate attribution is permanent.

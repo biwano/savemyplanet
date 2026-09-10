@@ -61,6 +61,7 @@ export async function evaluateActivity(
         activityText: activity,
         suggestedTonnes: tonnesFormatted,
         rationale: estimate.rationale,
+        suggestedRetirementMessage: estimate.suggestedRetirementMessage,
         openrouterCostUsd:
           usage?.costUsd != null
             ? formatOpenRouterCostUsd(usage.costUsd)
@@ -83,6 +84,7 @@ export async function evaluateActivity(
 async function resolveEstimate(activity: string): Promise<{
   suggestedTonnes: number
   rationale: string
+  suggestedRetirementMessage: string
   usage?: LlmEvaluation['usage']
 }> {
   let llm: LlmEvaluation | null
@@ -106,6 +108,7 @@ async function resolveEstimate(activity: string): Promise<{
   return {
     suggestedTonnes: llm.suggestedTonnes,
     rationale: llm.rationale,
+    suggestedRetirementMessage: llm.suggestedRetirementMessage,
     usage: llm.usage,
   }
 }

@@ -4,6 +4,7 @@ import type { evaluations } from '../db/schema/evaluations'
 export type APIEvaluation = {
   suggestedTonnes: number
   rationale: string
+  suggestedRetirementMessage: string
   evaluationsRemaining: number
 }
 
@@ -14,6 +15,7 @@ export function apiEvaluationFromRow(
   return {
     suggestedTonnes: Number(row.suggestedTonnes),
     rationale: row.rationale ?? '',
+    suggestedRetirementMessage: row.suggestedRetirementMessage ?? '',
     evaluationsRemaining,
   }
 }

@@ -82,7 +82,6 @@ export default function EvaluateScreen() {
     number | null
   >(null)
   const [result, setResult] = useState<APIEvaluation | null>(null)
-  const [submittedActivity, setSubmittedActivity] = useState('')
   const [tonnes, setTonnes] = useState('')
   const [tonnesError, setTonnesError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -149,7 +148,6 @@ export default function EvaluateScreen() {
     setError(null)
     try {
       const evaluation = await api.evaluate(await requireToken(), trimmed)
-      setSubmittedActivity(trimmed)
       setResult(evaluation)
       setEvaluationsRemaining(evaluation.evaluationsRemaining)
       setTonnes(formatTonnesExact(evaluation.suggestedTonnes))
@@ -172,7 +170,6 @@ export default function EvaluateScreen() {
 
   function onEstimateSomethingElse() {
     setResult(null)
-    setSubmittedActivity('')
     setTonnes('')
     setTonnesError(null)
     setError(null)
@@ -182,6 +179,7 @@ export default function EvaluateScreen() {
   }
 
   function onContinueToClear() {
+    if (!result) return
     const tonnesNumber = Number(tonnes.replace(',', '.'))
     if (!Number.isFinite(tonnesNumber) || tonnesNumber < MIN_TONNES) {
       setTonnesError(`Enter at least ${MIN_TONNES} tCO₂e`)
@@ -191,7 +189,7 @@ export default function EvaluateScreen() {
       pathname: '/(app)/retire',
       params: {
         tonnes: String(tonnesNumber),
-        message: submittedActivity,
+        message: result.suggestedRetirementMessage,
       },
     })
   }

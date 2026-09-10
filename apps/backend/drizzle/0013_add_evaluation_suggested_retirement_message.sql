@@ -1,0 +1,1 @@
+ALTER TABLE "evaluations" ADD COLUMN "suggested_retirement_message" text DEFAULT '' NOT NULL;

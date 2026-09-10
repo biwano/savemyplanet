@@ -18,6 +18,8 @@ export type LlmUsage = {
 export type LlmEvaluation = {
   suggestedTonnes: number
   rationale: string
+  /** Public certificate note suggestion; empty when the model omitted it. */
+  suggestedRetirementMessage: string
   ambiguous: boolean
   /** Present after a real OpenRouter call; mocks may omit it. */
   usage?: LlmUsage
@@ -45,8 +47,29 @@ const chatCompletionSchema = z.object({
 const llmJsonSchema = z.object({
   suggestedTonnes: z.number().finite().positive(),
   rationale: z.string().optional(),
+  suggestedRetirementMessage: z.string().optional(),
   ambiguous: z.boolean().optional(),
 })
+
+/**
+ * Hard cap for certificate message (matches prompt max 120).
+ * Klima accepts longer; keep UI tidy.
+ */
+export const MAX_RETIREMENT_MESSAGE_CHARS = 120
+
+/** Truncate at the last space under `maxChars`; hard-slice if no space. */
+export function truncateRetirementMessage(
+  message: string,
+  maxChars: number = MAX_RETIREMENT_MESSAGE_CHARS,
+): string {
+  if (message.length <= maxChars) return message
+  const sliced = message.slice(0, maxChars)
+  const lastSpace = sliced.lastIndexOf(' ')
+  if (lastSpace > 0) {
+    return sliced.slice(0, lastSpace).trimEnd()
+  }
+  return sliced.trimEnd()
+}
 
 /**
  * Call OpenRouter. Returns null when the response cannot be parsed into a
@@ -193,12 +216,14 @@ export function parseLlmJson(raw: string): Omit<LlmEvaluation, 'usage'> | null {
   }
 
   const rationale = parsed.data.rationale?.trim()
+  const message = parsed.data.suggestedRetirementMessage?.trim() ?? ''
   return {
     suggestedTonnes: parsed.data.suggestedTonnes,
     rationale:
       rationale && rationale.length > 0
         ? rationale
         : 'Estimated from your activity description.',
+    suggestedRetirementMessage: truncateRetirementMessage(message),
     ambiguous: parsed.data.ambiguous === true,
   }
 }

@@ -26,6 +26,7 @@ export type APIHealthResponse = {
 export type APIEvaluation = {
   suggestedTonnes: number
   rationale: string
+  suggestedRetirementMessage: string
   evaluationsRemaining: number
 }
 

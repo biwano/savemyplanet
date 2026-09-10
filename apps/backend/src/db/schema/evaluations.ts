@@ -14,6 +14,10 @@ export const evaluations = pgTable('evaluations', {
   activityText: text('activity_text').notNull(),
   suggestedTonnes: numeric('suggested_tonnes').notNull(),
   rationale: text('rationale'),
+  /** LLM draft for certificate `retirementMessage`; empty when the model omitted it. */
+  suggestedRetirementMessage: text('suggested_retirement_message')
+    .notNull()
+    .default(''),
   /** OpenRouter `usage.cost` (USD credits); null when the provider omitted it. */
   openrouterCostUsd: numeric('openrouter_cost_usd'),
   /** Model id from the completion response, else the requested model. */

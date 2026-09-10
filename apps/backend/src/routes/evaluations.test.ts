@@ -73,6 +73,7 @@ describe('POST /evaluations', () => {
     mockEvaluateLlm({
       suggestedTonnes: 0.017,
       rationale: 'About 17 kg CO₂e for a 100 km car trip.',
+      suggestedRetirementMessage: 'Clearing emissions from my 100 km car trip.',
       ambiguous: false,
       usage: {
         costUsd: 0.00012,
@@ -95,6 +96,7 @@ describe('POST /evaluations', () => {
     expect(body).toEqual({
       suggestedTonnes: 0.017,
       rationale: 'About 17 kg CO₂e for a 100 km car trip.',
+      suggestedRetirementMessage: 'Clearing emissions from my 100 km car trip.',
       evaluationsRemaining: INITIAL_EVALUATIONS_REMAINING - 1,
     })
     expect(body).not.toHaveProperty('openrouterCostUsd')
@@ -109,6 +111,9 @@ describe('POST /evaluations', () => {
     expect(row).toBeDefined()
     expect(Number(row?.suggestedTonnes)).toBe(0.017)
     expect(row?.rationale).toBe(body.rationale)
+    expect(row?.suggestedRetirementMessage).toBe(
+      'Clearing emissions from my 100 km car trip.',
+    )
     expect(Number(row?.openrouterCostUsd)).toBe(0.00012)
     expect(row?.openrouterModel).toBe('openai/gpt-4o-mini')
     expect(row?.promptTokens).toBe(120)
@@ -125,6 +130,7 @@ describe('POST /evaluations', () => {
     mockEvaluateLlm({
       suggestedTonnes: 0.5,
       rationale: 'No usage attached.',
+      suggestedRetirementMessage: 'Clearing emissions from a short bus ride.',
       ambiguous: false,
     })
 
@@ -139,6 +145,7 @@ describe('POST /evaluations', () => {
     expect(await res.json()).toEqual({
       suggestedTonnes: 0.5,
       rationale: 'No usage attached.',
+      suggestedRetirementMessage: 'Clearing emissions from a short bus ride.',
       evaluationsRemaining: INITIAL_EVALUATIONS_REMAINING - 1,
     })
 
@@ -149,6 +156,9 @@ describe('POST /evaluations', () => {
       ),
     })
     expect(row).toBeDefined()
+    expect(row?.suggestedRetirementMessage).toBe(
+      'Clearing emissions from a short bus ride.',
+    )
     expect(row?.openrouterCostUsd).toBeNull()
     expect(row?.openrouterModel).toBeNull()
     expect(row?.promptTokens).toBeNull()
@@ -160,6 +170,7 @@ describe('POST /evaluations', () => {
     mockEvaluateLlm({
       suggestedTonnes: 0.0001,
       rationale: 'Tiny footprint.',
+      suggestedRetirementMessage: 'Clearing a tiny footprint.',
       ambiguous: false,
     })
 
@@ -175,6 +186,7 @@ describe('POST /evaluations', () => {
     expect(body).toEqual({
       suggestedTonnes: MIN_TONNES,
       rationale: 'Tiny footprint.',
+      suggestedRetirementMessage: 'Clearing a tiny footprint.',
       evaluationsRemaining: INITIAL_EVALUATIONS_REMAINING - 1,
     })
 
@@ -197,6 +209,7 @@ describe('POST /evaluations', () => {
     const llm = mockEvaluateLlm({
       suggestedTonnes: 1,
       rationale: 'should not run',
+      suggestedRetirementMessage: 'should not run',
       ambiguous: false,
     })
 
@@ -283,6 +296,7 @@ describe('POST /evaluations', () => {
     mockEvaluateLlm({
       suggestedTonnes: 99,
       rationale: 'Unclear activity',
+      suggestedRetirementMessage: 'Clearing unclear activity emissions.',
       ambiguous: true,
     })
 
@@ -318,11 +332,12 @@ describe('parseLlmJson', () => {
   it('parses plain JSON', () => {
     expect(
       parseLlmJson(
-        '{"suggestedTonnes":0.017,"rationale":"A short trip.","ambiguous":false}',
+        '{"suggestedTonnes":0.017,"rationale":"A short trip.","suggestedRetirementMessage":"Clearing emissions from a short trip.","ambiguous":false}',
       ),
     ).toEqual({
       suggestedTonnes: 0.017,
       rationale: 'A short trip.',
+      suggestedRetirementMessage: 'Clearing emissions from a short trip.',
       ambiguous: false,
     })
   })
@@ -333,7 +348,39 @@ describe('parseLlmJson', () => {
     ).toEqual({
       suggestedTonnes: 1.5,
       rationale: 'Estimated from your activity description.',
+      suggestedRetirementMessage: '',
       ambiguous: true,
+    })
+  })
+
+  it('truncates long suggested retirement messages at a word boundary', () => {
+    const long = `${'word '.repeat(30)}tail`
+    const parsed = parseLlmJson(
+      JSON.stringify({
+        suggestedTonnes: 1,
+        suggestedRetirementMessage: long,
+      }),
+    )
+    expect(parsed).not.toBeNull()
+    expect(parsed!.suggestedRetirementMessage.length).toBeLessThanOrEqual(120)
+    expect(parsed!.suggestedRetirementMessage).not.toMatch(/ $/)
+    expect(parsed!.suggestedRetirementMessage.endsWith('word')).toBe(true)
+  })
+
+  it('hard-slices when a long message has no spaces', () => {
+    const long = 'x'.repeat(250)
+    expect(
+      parseLlmJson(
+        JSON.stringify({
+          suggestedTonnes: 1,
+          suggestedRetirementMessage: long,
+        }),
+      ),
+    ).toEqual({
+      suggestedTonnes: 1,
+      rationale: 'Estimated from your activity description.',
+      suggestedRetirementMessage: 'x'.repeat(120),
+      ambiguous: false,
     })
   })
 

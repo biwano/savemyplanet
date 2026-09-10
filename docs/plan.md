@@ -75,7 +75,7 @@ Neon Postgres + Drizzle. Schema (minimum):
 | `ledger_entries` | immutable credits/debits: funding, reserve, capture, release; includes `retirement_id`; **F1** adds Stripe fee/net/FX on funding rows |
 | `quotes` | snapshot of user-facing price (tonnes, markup_bps, user_total, klima_total stored **server-only**, expiry) |
 | `retirements` | state machine + certificate URL, tx hash, tonnes, attribution; **F2** adds Klima auth/spend (server-only) |
-| `evaluations` | optional audit of activity text → suggested tonnes; **B7c** adds OpenRouter cost / usage |
+| `evaluations` | optional audit of activity text → suggested tonnes + `suggested_retirement_message`; **B7c** adds OpenRouter cost / usage |
 
 `beneficiaryAddress` is **not** a stored column: derive it deterministically from `users.id` (UUID → checksummed EVM address) in B7b. Same UUID always yields the same address.
 
@@ -131,9 +131,9 @@ Vendor or install `@klimadao/x402-retire` / `klima-retire.ts`. Wrap it:
 
 - [x] **Done when:** natural language "I drove 100km" returns a valid tonnage.
 
-`POST /evaluations` `{ activity: string }` → `{ suggestedTonnes, rationale, evaluationsRemaining }`.
+`POST /evaluations` `{ activity: string }` → `{ suggestedTonnes, rationale, suggestedRetirementMessage, evaluationsRemaining }`.
 
-- [x] Backend calls LLM (OpenRouter) with a system prompt to extract tonnage from activity text.
+- [x] Backend calls LLM (OpenRouter) with a system prompt to extract tonnage from activity text and draft a short `suggestedRetirementMessage` for the certificate.
 - [x] No heuristic estimate: if the LLM fails or is ambiguous, return an error (no invented tonnage).
 
 ### B7b. Evaluation quota + user beneficiary address
@@ -258,7 +258,7 @@ User-facing JSON. Field names are the freeze; change only with a version bump.
 | GET | `/account` | yes | `{ available, reserved, currency }` |
 | POST | `/account/deposit` | yes | `{ clientSecret, paymentIntentId }` (presentment `usd` \| `eur`) |
 | POST | `/account/credit` | admin | `{ account }` (v1 funding) |
-| POST | `/evaluations` | yes | `{ suggestedTonnes, rationale, evaluationsRemaining }` (403/409 if quota exhausted) |
+| POST | `/evaluations` | yes | `{ suggestedTonnes, rationale, suggestedRetirementMessage, evaluationsRemaining }` (403/409 if quota exhausted) |
 | GET | `/classes` | yes | `{ classes: [...] }` (list Klima classes) |
 | POST | `/quotes` | yes | `{ quoteId, carbonClass, tonnes, userTotal, currency, expiresAt }` |
 | POST | `/retirements` | yes | `{ id, status, createdAt, certificateUrl? }` (server sets `beneficiaryAddress` from user UUID; body still takes `beneficiaryString`) |
