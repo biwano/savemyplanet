@@ -57,7 +57,9 @@ describe('C1 Klima wallet headroom', () => {
   })
 
   afterEach(async () => {
-    vi.restoreAllMocks()
+    // Do not restoreAllMocks here — setup.ts beforeEach already does, and
+    // restoring while a timed-out request is still in flight re-enables live
+    // Base RPC under MSW and races the next test’s headroom admit.
     restoreEnv('KLIMA_RETIRE_MODE', previousRetireMode)
     restoreEnv('KLIMA_HEADROOM_PAD_BPS', previousPad)
     restoreEnv('KLIMA_FAKE_RETIRE_STATUS', previousFakeStatus)
@@ -139,9 +141,12 @@ describe('C1 Klima wallet headroom', () => {
     })
 
     // Wait until first has admitted and entered Klima (row is submitted).
-    await vi.waitFor(() => {
-      expect(retireSpy).toHaveBeenCalledTimes(1)
-    })
+    await vi.waitFor(
+      () => {
+        expect(retireSpy).toHaveBeenCalledTimes(1)
+      },
+      { timeout: 15_000 },
+    )
 
     const second = await app.request('/retirements', {
       method: 'POST',
@@ -215,9 +220,12 @@ describe('C1 Klima wallet headroom', () => {
       }),
     })
 
-    await vi.waitFor(() => {
-      expect(retireSpy).toHaveBeenCalledTimes(1)
-    })
+    await vi.waitFor(
+      () => {
+        expect(retireSpy).toHaveBeenCalledTimes(1)
+      },
+      { timeout: 15_000 },
+    )
 
     releaseRetire()
     const res = await promise

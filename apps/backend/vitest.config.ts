@@ -10,5 +10,10 @@ export default defineConfig({
     // Shared Neon + C1 headroom sums all `submitted` rows globally. Parallel
     // files that leave submitted (e.g. ambiguous Klima) race headroom admits.
     fileParallelism: false,
+    // Neon round-trips in CI routinely exceed Vitest’s 5s default; a timeout
+    // mid-retire leaves in-flight work that hits real RPC after mocks restore
+    // and poisons later C1 headroom tests on the shared DB.
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
   },
 })

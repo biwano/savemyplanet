@@ -9,7 +9,7 @@ import {
   klimaHeadroomPadBps,
   klimaRetireMode,
 } from '../klima/config'
-import { readServiceWalletUsdcBalanceCents } from '../klima/usdcBalance'
+import * as usdcBalance from '../klima/usdcBalance'
 
 /** Columns set with `reserved` → `submitted` (C3 attempt marker before Klima). */
 function submittedWithAttemptMarker(): {
@@ -94,7 +94,8 @@ export async function admitRetirementForKlima(
     return
   }
 
-  const liveUsdcCents = await readServiceWalletUsdcBalanceCents()
+  // Namespace import so `vi.spyOn(usdcBalance, …)` in tests always intercepts.
+  const liveUsdcCents = await usdcBalance.readServiceWalletUsdcBalanceCents()
 
   await db.transaction(async (tx) => {
     await tx.execute(

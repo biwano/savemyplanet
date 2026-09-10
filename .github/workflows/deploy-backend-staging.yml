@@ -3,11 +3,13 @@ name: Deploy backend staging
 # Build + push the backend image, then roll staging Cloud Run to that tag.
 # Runs after migrate-staging succeeds so schema changes land before the new image.
 # (migrate-staging itself only runs after CI succeeds on a push to staging.)
+# Also runnable manually from Actions → this workflow → Run workflow (staging branch).
 on:
   workflow_run:
     workflows: [Migrate staging database]
     types: [completed]
     branches: [staging]
+  workflow_dispatch:
 
 concurrency:
   group: deploy-backend-staging
@@ -27,7 +29,9 @@ env:
 jobs:
   deploy:
     name: Build and deploy staging
-    if: github.event.workflow_run.conclusion == 'success'
+    if: >
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/staging') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: staging
@@ -38,7 +42,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -52,7 +56,7 @@ jobs:
       - name: Set image coordinates
         id: image
         env:
-          SHA: ${{ github.event.workflow_run.head_sha }}
+          SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
         run: |
           registry="${GCP_REGION}-docker.pkg.dev"
           image="${registry}/${GCP_PROJECT_ID}/${GCP_ARTIFACT_REPOSITORY}/backend"
