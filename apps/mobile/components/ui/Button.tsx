@@ -108,6 +108,7 @@ const buttonWebBase: CSSProperties = {
   font: 'inherit',
   width: '100%',
   minHeight: 48,
+  textAlign: 'center',
 }
 
 const buttonWebSecondary: CSSProperties = {
@@ -149,6 +150,8 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+    textAlign: 'center',
+    width: '100%',
   },
   buttonLabelSecondary: {
     color: colors.accent,

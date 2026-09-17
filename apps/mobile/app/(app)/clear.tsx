@@ -1,7 +1,7 @@
 import { useAuth } from '@clerk/expo'
 import type { APIRetirement } from 'api-types'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { Linking, Text, View } from 'react-native'
 
 import { Button, ErrorBanner, Screen } from '@/components/ui'
@@ -15,6 +15,7 @@ import {
 } from '@/lib/clearFlow'
 import { formatUsdCents } from '@/lib/format'
 import { colors, spacing, typography } from '@/lib/theme'
+import { useCarbonClasses } from '@/lib/useCarbonClasses'
 
 function RecapRow({ label, value }: { label: string; value: string }) {
   return (
@@ -75,6 +76,7 @@ export default function ClearScreen() {
         }
       : null,
   )
+  const { classes } = useCarbonClasses({ preload: true })
   const [availableCents, setAvailableCents] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -83,9 +85,12 @@ export default function ClearScreen() {
   /** One automatic re-quote per focus cycle (deposit return / expiry). */
   const autoRefreshAttempted = useRef(false)
   const liveQuoteRef = useRef(liveQuote)
-  liveQuoteRef.current = liveQuote
   const retirementRef = useRef(retirement)
-  retirementRef.current = retirement
+  // Layout effect: keep refs current before paint / focus handlers (not during render).
+  useLayoutEffect(() => {
+    liveQuoteRef.current = liveQuote
+    retirementRef.current = retirement
+  }, [liveQuote, retirement])
 
   const refreshBalance = useCallback(async () => {
     try {
@@ -244,6 +249,8 @@ export default function ClearScreen() {
   }
 
   const { tonnes, carbonClass, userTotal, expiresAt } = liveQuote
+  const classDisplay =
+    classes.find((c) => c.carbonClass === carbonClass)?.name ?? carbonClass
   const shortfall =
     availableCents != null ? Math.max(0, userTotal - availableCents) : null
   const needsFunds = shortfall != null && shortfall > 0
@@ -267,7 +274,7 @@ export default function ClearScreen() {
         }}
       >
         <RecapRow label="Tonnes" value={`${tonnes} tCO₂e`} />
-        <RecapRow label="Carbon class" value={carbonClass} />
+        <RecapRow label="Carbon class" value={classDisplay} />
         <RecapRow label="Price you pay" value={formatUsdCents(userTotal)} />
         <RecapRow
           label="Price holds until"

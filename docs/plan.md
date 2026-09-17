@@ -327,9 +327,9 @@ Default: evaluation requires auth (simpler). Logged-out evaluate is a later cont
 
 Screens: Clear · Amount / **Quote** (`/quote`; early build may combine Amount · Class · Attribution here). Class picking is a **modal** on Quote — not a stack screen. Law: [ux.md](ux.md). Backend: [B6b](#b6b-classes-browse-get-classes--api-catch-up) (`GET /classes`) is done.
 
-- [ ] **Done when:** user can set tonnes, pick a class (or **I don’t know**), set attribution, get a marked-up quote, and **Get quote** advances to Clear without seeing Klima’s wholesale total.
+- [x] **Done when:** user can set tonnes, pick a class (or **Choose for me**), set attribution, get a marked-up quote, and **Get quote** advances to Clear without seeing Klima’s wholesale total.
 
-- [ ] Browse `GET /classes` and select one in the **Class modal** on Quote (select at top; selected class **picture left**, **description right** — per [ux.md](ux.md)). Or choose **I don’t know** / omit `carbonClass` so the backend auto-picks (`POST /quotes` already supports this).
+- [x] Browse `GET /classes` and select one in the **Class modal** on Quote (select at top; selected class **picture left**, **description right** — per [ux.md](ux.md)). Or choose **Choose for me** / omit `carbonClass` so the backend auto-picks (`POST /quotes` already supports this).
 - [x] Request `/quotes` for the chosen tonnes (+ class when selected).
 - [x] Show **our** price (`userTotal`), tonnes, and returned class on **Clear** only. Do not show Klima wholesale. Do not show price on Quote.
 - [x] Collect attribution (`beneficiaryString` required; optional `retirementMessage`) **before** Clear; primary **Get quote** pushes Clear with quote + attribution params.

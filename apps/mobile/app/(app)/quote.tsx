@@ -2,12 +2,19 @@ import { useAuth, useUser } from '@clerk/expo'
 import type { APIQuote } from 'api-types'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useState } from 'react'
-import { Text } from 'react-native'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 
+import {
+  ClassModal,
+  DEFAULT_CLASS_CHOICE,
+  classChoiceLabel,
+  type ClassChoice,
+} from '@/components/ClassModal'
 import { Button, ErrorBanner, Field, Form, Screen } from '@/components/ui'
 import { ApiError, api } from '@/lib/api'
 import { defaultBeneficiaryString } from '@/lib/clearFlow'
-import { typography } from '@/lib/theme'
+import { colors, spacing, typography } from '@/lib/theme'
+import { useCarbonClasses } from '@/lib/useCarbonClasses'
 
 export default function QuoteScreen() {
   const { getToken } = useAuth()
@@ -23,6 +30,15 @@ export default function QuoteScreen() {
   const [message, setMessage] = useState(
     typeof params.message === 'string' ? params.message : '',
   )
+  const [classChoice, setClassChoice] =
+    useState<ClassChoice>(DEFAULT_CLASS_CHOICE)
+  const [classModalOpen, setClassModalOpen] = useState(false)
+  const {
+    classes,
+    loading: classesLoading,
+    error: classesError,
+    loadClasses,
+  } = useCarbonClasses({ preload: true })
   const [error, setError] = useState<string | null>(null)
   const [tonnesError, setTonnesError] = useState<string | null>(null)
   const [beneficiaryError, setBeneficiaryError] = useState<string | null>(null)
@@ -61,8 +77,12 @@ export default function QuoteScreen() {
     try {
       const token = await getToken()
       if (!token) throw new Error('Missing session token')
-      // Backend auto-picks cheapest liquid class when carbonClass is omitted (S2).
-      pushClear(await api.createQuote(token, tonnesNumber), name)
+      const quoted = await api.createQuote(
+        token,
+        tonnesNumber,
+        classChoice.kind === 'class' ? classChoice.carbonClass : undefined,
+      )
+      pushClear(quoted, name)
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -92,6 +112,22 @@ export default function QuoteScreen() {
           keyboardType="decimal-pad"
           error={tonnesError}
         />
+
+        <View style={styles.field}>
+          <Text style={typography.label}>Support a technology</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Support a technology: ${classChoiceLabel(classChoice)}. Change.`}
+            onPress={() => setClassModalOpen(true)}
+            style={styles.projectType}
+          >
+            <Text style={styles.projectTypeValue}>
+              {classChoiceLabel(classChoice)}
+            </Text>
+            <Text style={styles.projectTypeHint}>Change</Text>
+          </Pressable>
+        </View>
+
         <Field
           label="Beneficiary name"
           value={beneficiaryValue}
@@ -111,6 +147,51 @@ export default function QuoteScreen() {
 
         <Button submit label="Get quote" busy={busy} />
       </Form>
+
+      {classModalOpen ? (
+        <ClassModal
+          visible
+          committed={classChoice}
+          classes={classes}
+          loading={classesLoading}
+          loadError={classesError}
+          onRetry={() => void loadClasses({ force: true })}
+          onDone={(choice) => {
+            setClassChoice(choice)
+            setClassModalOpen(false)
+          }}
+          onCancel={() => setClassModalOpen(false)}
+        />
+      ) : null}
     </Screen>
   )
 }
+
+const styles = StyleSheet.create({
+  field: {
+    gap: spacing.xs,
+  },
+  projectType: {
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    minHeight: 48,
+  },
+  projectTypeValue: {
+    flex: 1,
+    fontSize: 16,
+    color: colors.ink,
+  },
+  projectTypeHint: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.accent,
+  },
+})

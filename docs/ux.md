@@ -222,20 +222,20 @@ Skip this screen when arriving from Evaluate result with a confirmed amount (sti
 
 **Content**
 
-- Title: Choose a project type (or equivalent short heading).
-- **Select at the top** — control listing classes from `GET /classes` (display `name`; value is `carbonClass`). Include an **I don’t know** option that means “no preference / omit class.”
+- Title: Support a technology (or equivalent short heading).
+- **Select at the top** — control listing classes from `GET /classes` (display `name`; value is `carbonClass`). Include a **Choose for me** option that means “no preference / omit class.”
 - Below the select, a two-column preview of the **currently selected** class (not a scrolling list of cards):
   - **Left:** picture of the selected class from `imageUrl` (backend always returns one — class AVIF or default). Never a broken image.
   - **Right:** short description of the selected class (`description` when present; otherwise a quiet “No description” / empty state).
-- When **I don’t know** is selected: show a neutral preview (no specific project picture/description) explaining that we’ll pick a suitable class for the tonnes.
-- Primary: **Done** / **Use this class** — closes the modal and applies the selection on Quote.
+- When **Choose for me** is selected: show a neutral preview (no specific project picture/description) explaining that we’ll pick a suitable technology for the tonnes.
+- Primary: **Support this technology** — closes the modal and applies the selection on Quote.
 - Secondary: dismiss (backdrop / Close) without changing the prior selection if the user cancels mid-edit — or apply only on Done; pick one pattern and stay consistent (prefer: Done commits, Close/backdrop cancels).
 
 **Interactions**
 
 - Changing the select updates the left picture and right description immediately (same modal, no navigation).
-- Confirming a specific class → Quote shows that class as the chosen project type; `POST /quotes` includes `carbonClass`.
-- Confirming **I don’t know** → Quote shows that preference; `POST /quotes` **omits** `carbonClass` so the backend auto-picks the cheapest liquid class. Show the chosen class name on **Clear** once the quote returns.
+- Confirming a specific class → Quote shows that class under **Support a technology**; `POST /quotes` includes `carbonClass`.
+- Confirming **Choose for me** → Quote shows that preference; `POST /quotes` **omits** `carbonClass` so the backend auto-picks the cheapest liquid class. Show the chosen class name on **Clear** once the quote returns.
 - Load classes when the modal opens (or when Quote mounts); tolerate cold start with a spinner inside the modal.
 - Not a full-screen stack step — Back from Quote still goes to Amount or Evaluate result.
 
@@ -254,17 +254,17 @@ Skip this screen when arriving from Evaluate result with a confirmed amount (sti
 **Content**
 
 - Tonnes field when Amount is combined here (positive tCO₂e).
-- **Project type / class** — summary of the current choice (class name, or **I don’t know**). Tap opens the **Class modal**. Default may be **I don’t know** until the user picks.
+- **Support a technology** — summary of the current choice (class name, or **Choose for me**). Tap opens the **Class modal**. Default may be **Choose for me** until the user picks.
 - **Name on certificate** (`beneficiaryString`) — text field, required. Prefill with Clerk first + last name when set, else email local-part; user can edit.
 - Optional **message** (`retirementMessage`). When arriving from Evaluate, prefill with the LLM `suggestedRetirementMessage` from that evaluation; otherwise empty. Editable.
 - No wallet field. Do not show `beneficiaryAddress` unless we later add an advanced “technical details” disclosure; default is hide.
 - No on-screen quote summary (price / class / expiry from the quote response). That recapitulation lives only on **Clear**; Back from Clear returns here to edit. (The class **choice** summary above is fine; do not show `userTotal` here.)
-- Primary: **Get quote** — validates name (and tonnes when shown), calls `POST /quotes` with `carbonClass` when a specific class is selected (omit when **I don’t know**), and on success pushes **Clear**. Busy = ripple spinner only (see Busy buttons). Do not swap the label to “Continue” after a quote; one CTA does fetch + advance.
+- Primary: **Get quote** — validates name (and tonnes when shown), calls `POST /quotes` with `carbonClass` when a specific class is selected (omit when **Choose for me**), and on success pushes **Clear**. Busy = ripple spinner only (see Busy buttons). Do not swap the label to “Continue” after a quote; one CTA does fetch + advance.
 - Secondary: Back.
 
 **Interactions**
 
-- Tap project type → **Class modal**.
+- Tap **Support a technology** → **Class modal**.
 - Validate required fields before calling the API. Show spinner on the CTA until the quote returns. If quote fails, error + retry — do not advance to Clear.
 - On success → push **Clear** (`/clear`) with quote id, tonnes, class, price, expiry, name, and message.
 - Back → Amount or Evaluate result.
@@ -474,6 +474,7 @@ Skip this screen when arriving from Evaluate result with a confirmed amount (sti
 | Connectivity  | Offline: disable primary submits; show a single banner.                                                                                                                                                  |
 | Form submit   | **Enter** on a **single-line** text field in a form runs the screen’s **primary** CTA (same enablement rules as the button). **Multiline / textarea fields never submit on Enter** (Enter = newline); the user taps the primary CTA. Never bind Enter to Cancel, Sign out, or other secondary/destructive actions. Do **not** treat an inserted newline character as a submit signal. |
 | Busy buttons  | In-flight primary CTAs: **ripple spinner only** (no “Signing in…” / “Getting quote…” label swap). Stable `accessibilityLabel` = the idle action name; mark the control disabled + busy (`accessibilityState.busy` / `aria-busy`). Full-screen or section spinners (cold start, quote load before Clear, Progress) stay as they are — this row is about the CTA itself. |
+| Button labels | Label text is **horizontally centered** inside the control, including when the label **wraps** to multiple lines (e.g. Home’s **Estimate your carbon footprint**). Do not left-align wrapped lines. |
 
 
 ---
@@ -562,6 +563,7 @@ Sign-in → Forgot password? → Reset password (email → code + new password)
 - Permanence warning appears **once**, on **Clear** — not on every prior step.
 - The irreversible CTA is only on **Clear**, labeled **Confirm and clear** (never **Confirm retire** in user-facing copy).
 - Avoid explaining markup, Klima, or Base unless the user opens an optional About later (out of v1 scope).
+- Class picker copy says **technology** / **Support a technology** (modal title, Quote field label, primary CTA **Support this technology**) — not “project type.” Mechanics/API may still say class / `carbonClass`.
 
 ---
 
