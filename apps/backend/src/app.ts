@@ -4,12 +4,14 @@ import { errorBody, handleError } from './errors'
 import { accountRoutes } from './routes/account/index'
 import { accountCreditRoutes } from './routes/account/credit'
 import { accountDepositRoutes } from './routes/account/deposit'
+import { classesRoutes } from './routes/classes'
 import { evaluationsRoutes } from './routes/evaluations'
 import { healthRoutes } from './routes/health'
 import { meRoutes } from './routes/me'
 import { quotesRoutes } from './routes/quotes'
 import { retirementByIdRoutes } from './routes/retirements/id'
 import { retirementsRoutes } from './routes/retirements/index'
+import { staticRoutes } from './routes/static'
 import { webhooksClerkRoutes } from './routes/webhooks/clerk'
 import { webhooksStripeRoutes } from './routes/webhooks/stripe'
 
@@ -27,6 +29,8 @@ export function createApp() {
   app.route('/account', accountRoutes)
   app.route('/account/deposit', accountDepositRoutes)
   app.route('/account/credit', accountCreditRoutes)
+  app.route('/classes', classesRoutes)
+  app.route('/static', staticRoutes)
   app.route('/evaluations', evaluationsRoutes)
   app.route('/quotes', quotesRoutes)
   app.route('/retirements', retirementsRoutes)

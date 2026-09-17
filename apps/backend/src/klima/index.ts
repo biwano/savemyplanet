@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts'
 import { createTtlCache } from '../cache/ttl'
+import { isValidCarbonClass } from '../classes/catalog'
 import { AppError } from '../errors'
 import {
   assertKlimaRetireModeSafe,
@@ -204,16 +205,17 @@ function parseCarbonClass(raw: unknown): KlimaCarbonClass | undefined {
   return cc
 }
 
-/** Require catalog shape used by quotes/markup; drop malformed class rows. */
+/** Require catalog shape used by quotes/markup; drop malformed / ineligible class rows. */
 function parseDiscoverResult(raw: unknown): KlimaDiscoverResult {
   if (!isRecord(raw) || !Array.isArray(raw.carbonClasses)) {
     throw new AppError(502, 'klima_invalid_discover')
   }
+  const parsed = raw.carbonClasses.flatMap((item) => {
+    const cc = parseCarbonClass(item)
+    return cc ? [cc] : []
+  })
   return {
-    carbonClasses: raw.carbonClasses.flatMap((item) => {
-      const cc = parseCarbonClass(item)
-      return cc ? [cc] : []
-    }),
+    carbonClasses: parsed.filter(isValidCarbonClass),
   }
 }
 

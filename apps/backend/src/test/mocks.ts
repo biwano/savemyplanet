@@ -3,6 +3,7 @@ import { verifyWebhook } from '@clerk/backend/webhooks'
 import type { WebhookEvent } from '@clerk/backend/webhooks'
 import type Stripe from 'stripe'
 import { vi } from 'vitest'
+import { isValidCarbonClass } from '../classes/catalog'
 import type { LlmEvaluation } from '../evaluate/llm'
 import * as evaluateLlm from '../evaluate/llm'
 import type {
@@ -117,8 +118,9 @@ export function mockKlimaPricing(input?: {
   quote?: KlimaQuoteResult
 }): void {
   const carbonClassId = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
-  vi.spyOn(klima, 'discover').mockResolvedValue(
-    input?.discover ?? {
+  const rawDiscover =
+    input?.discover ??
+    ({
       carbonClasses: [
         {
           carbonClassId,
@@ -132,8 +134,10 @@ export function mockKlimaPricing(input?: {
           ],
         },
       ],
-    },
-  )
+    } satisfies KlimaDiscoverResult)
+  vi.spyOn(klima, 'discover').mockResolvedValue({
+    carbonClasses: rawDiscover.carbonClasses.filter(isValidCarbonClass),
+  })
   vi.spyOn(klima, 'quote').mockResolvedValue(
     input?.quote ?? {
       // $10.00 USDC wholesale (6-decimal base units).

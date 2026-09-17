@@ -127,6 +127,21 @@ Vendor or install `@klimadao/x402-retire` / `klima-retire.ts`. Wrap it:
 
 - [x] `POST /quotes` (auth): validate tonnes; discover + optional price cap / optional `carbonClass`; Klima wholesale + markup (ceil to cents); persist with TTL; return `{ quoteId, carbonClass, tonnes, userTotal, currency, expiresAt }` only.
 
+### B6b. Classes browse (`GET /classes`) — API catch-up
+
+Contract lists `GET /classes`; the route was **never implemented** (`routes/classes.ts` missing). Required before M4a Class modal. Does not reopen B6 quotes.
+
+- [x] **Done when:** authenticated `GET /classes` returns named classes only in the frozen shape (always an `imageUrl`, curated `description` when we have one); whole-tonne-only filtered; static AVIFs served with cache headers; colocated route tests pass; auto-pick / resolve ignore nameless classes.
+
+- [x] `GET /classes` (auth): optional query `lang` (`en` \| `fr`, default `en`; unknown → `en`). `discover()` → keep classes with a **human `name`** only (drop missing names and names that are just the `0x…` id). Map to `{ carbonClass, name, description?, imageUrl }` with description in the requested language. Never expose Klima reference USDC/t, liquidity, token ids, or chain fields.
+- [x] Filter whole-tonne-only classes the same way quotes do ([product.md](product.md)).
+- [x] **Descriptions:** curated copy researched from public sources from the class **name** (not wholesale/price fluff), stored per `lang` (`en` required, `fr` for v1). Keyed by `carbonClass` id. New named classes without curated copy may omit `description` until researched.
+- [x] **Images:** generate AVIF assets under `apps/backend/static/carbonclasses/` (display-sized for the Class modal — ~512px on the long edge, not 1024 masters). One file per known class + `default.avif`. Serve from the backend at `/static/*` (`serveStatic` rooted at `static/`) with `Cache-Control: public, max-age=86400`. `imageUrl` is always absolute (`…/static/carbonclasses/…`); if a class has no dedicated file, use `default.avif`.
+- [x] **Name filter at catalog parse:** `discover()` / `parseDiscoverResult` drops nameless and whole-tonne-only (Puro) classes once; `GET /classes`, `pickCheapestLiquid`, and `resolveCarbonClass` consume that filtered catalog.
+- [x] Shared `APICarbonClass`: `imageUrl: string` (required on the wire); `description?` optional.
+- [x] Mount + rate-limit like other read routes (N1 table already lists `/classes`). Colocated `routes/classes.test.ts` (401; 200 shape; no wholesale; nameless excluded). Static image route returns AVIF + cache headers (default file exists).
+- [x] **No change needed** on `POST /quotes` body shape — optional `carbonClass` + auto-pick when omitted already works (auto-pick must respect the name filter).
+
 ### B7. Evaluate activity (LLM)
 
 - [x] **Done when:** natural language "I drove 100km" returns a valid tonnage.
@@ -259,7 +274,7 @@ User-facing JSON. Field names are the freeze; change only with a version bump.
 | POST | `/account/deposit` | yes | `{ clientSecret, paymentIntentId }` (presentment `usd` \| `eur`) |
 | POST | `/account/credit` | admin | `{ account }` (v1 funding) |
 | POST | `/evaluations` | yes | `{ suggestedTonnes, rationale, suggestedRetirementMessage, evaluationsRemaining }` (403/409 if quota exhausted) |
-| GET | `/classes` | yes | `{ classes: [...] }` (list Klima classes) |
+| GET | `/classes` | yes | Query `lang` optional (`en` \| `fr`, default `en`; unknown → `en`). `{ classes: [{ carbonClass, name, description?, imageUrl }, ...] }` (named discover only; curated description in `lang`; `imageUrl` always; filter whole-tonne-only; no wholesale) |
 | POST | `/quotes` | yes | `{ quoteId, carbonClass, tonnes, userTotal, currency, expiresAt }` |
 | POST | `/retirements` | yes | `{ id, status, createdAt, certificateUrl? }` (server sets `beneficiaryAddress` from user UUID; body still takes `beneficiaryString`) |
 | GET | `/retirements` | yes | `{ items: [...] }` |
@@ -310,14 +325,14 @@ Default: evaluation requires auth (simpler). Logged-out evaluate is a later cont
 
 ### M4a. Quote page
 
-Screens: Clear · Amount / Class / **Quote** (`/quote`; early build may combine Amount · Class · Attribution here). Law: [ux.md](ux.md).
+Screens: Clear · Amount / **Quote** (`/quote`; early build may combine Amount · Class · Attribution here). Class picking is a **modal** on Quote — not a stack screen. Law: [ux.md](ux.md). Backend: [B6b](#b6b-classes-browse-get-classes--api-catch-up) (`GET /classes`) is done.
 
-- [ ] **Done when:** user can set tonnes and attribution, get a marked-up quote, and **Continue** to Clear without seeing Klima’s wholesale total.
+- [ ] **Done when:** user can set tonnes, pick a class (or **I don’t know**), set attribution, get a marked-up quote, and **Get quote** advances to Clear without seeing Klima’s wholesale total.
 
-- [ ] Browse `/classes` and select one (or **I don’t know** / omit `carbonClass` so the backend auto-picks — per [ux.md](ux.md)).
+- [ ] Browse `GET /classes` and select one in the **Class modal** on Quote (select at top; selected class **picture left**, **description right** — per [ux.md](ux.md)). Or choose **I don’t know** / omit `carbonClass` so the backend auto-picks (`POST /quotes` already supports this).
 - [x] Request `/quotes` for the chosen tonnes (+ class when selected).
-- [x] Show **our** price (`userTotal`), tonnes, and returned class. Do not show Klima wholesale.
-- [x] Collect attribution (`beneficiaryString` required; optional `retirementMessage`) **before** Clear; primary **Continue** pushes Clear with quote + attribution params.
+- [x] Show **our** price (`userTotal`), tonnes, and returned class on **Clear** only. Do not show Klima wholesale. Do not show price on Quote.
+- [x] Collect attribution (`beneficiaryString` required; optional `retirementMessage`) **before** Clear; primary **Get quote** pushes Clear with quote + attribution params.
 - [x] Do not ask the user for a wallet / `beneficiaryAddress` — backend applies the UUID-derived default.
 
 ### M4b. Clear page
@@ -541,6 +556,7 @@ EIP-3009 / Klima `salt` is **out of scope** to “fix”: we do not mint nonces;
 - [x] 0. Phase 0 monorepo + backend health
 - [x] B1–B4 skeleton, DB, auth, ledger
 - [x] B5–B6 Klima reads + marked-up quotes
+- [x] B6b `GET /classes` (named-only; curated descriptions; AVIF under `static/carbonclasses`; blocks M4a class modal)
 - [x] B7 evaluations
 - [x] B7b evaluation quota + derived beneficiaryAddress
 - [x] B7c persist OpenRouter evaluation costs (parallel OK; does not block API freeze)

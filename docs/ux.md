@@ -30,10 +30,10 @@ Signed in (tab shell)
         └─ Evaluate result → handoff into Clear (tab bar hidden)
 
 Flows (pushed stacks, tab bar hidden)
-  └─ Clear: amount → class → quote (attribution) → clear → progress → certificate
+  └─ Clear: amount → quote (class modal + attribution) → clear → progress → certificate
 ```
 
-**Quote** (`/quote`) collects tonnes / class / attribution, then **Get quote** runs `POST /quotes` and — on success — pushes **Clear** with the quote in hand. Early builds may combine Amount · Class · Attribution on this one screen. There is no price card or separate Continue on Quote; price / class / expiry appear on **Clear**. **Clear** (`/clear`) is always its own stack screen: a read-only recapitulation plus the irreversible **Confirm and clear** action. Editing tonnes, class, name, or message happens on Quote (or earlier steps) — never on Clear.
+**Quote** (`/quote`) collects tonnes, class, and attribution, then **Get quote** runs `POST /quotes` and — on success — pushes **Clear** with the quote in hand. Class is chosen in a **modal** on Quote (not a separate stack screen). Early builds may combine Amount · Class · Attribution on this one screen. There is no price card or separate Continue on Quote; price / class / expiry appear on **Clear**. **Clear** (`/clear`) is always its own stack screen: a read-only recapitulation plus the irreversible **Confirm and clear** action. Editing tonnes, class, name, or message happens on Quote (or earlier steps) — never on Clear.
 
 Tabs stay at three (**Home · History · Funds**). Profile and early Evaluate are still **flows** launched from Home / header — not permanent tab buttons — but they keep the **tab bar** so the user can jump to Home, History, or Funds. Once Evaluate reaches **result** (or the user continues into Clear / Deposit), hide the tab bar so the clearing tunnel stays focused.
 
@@ -169,10 +169,10 @@ Tabs stay at three (**Home · History · Funds**). Profile and early Evaluate ar
 
 - Help beside **Emissions estimation** → modal (AI estimate disclaimer); dismiss via Close or backdrop.
 - Edit tonnes → **Clear those emissions** uses the edited value (client validation: ≥ 0.001).
-- Clear those emissions → **Clear · Amount** with tonnes prefilled (skip re-entry), then class; also carry the LLM **suggested retirement message** into Quote / Attribution as a prefilled **message** (`retirementMessage`) — user can edit or clear it before **Clear**.
-- Prefer stacking: Result → Class (amount already set) to shorten the path. If amount must be revisited, insert Amount as an editable step with prefill.
+- Clear those emissions → **Quote** with tonnes prefilled (skip Amount when possible); also carry the LLM **suggested retirement message** into Quote as a prefilled **message** (`retirementMessage`) — user can edit or clear it before **Get quote**. Class is chosen on Quote via the **Class modal**.
+- Prefer stacking: Result → Quote (amount already set) to shorten the path. If amount must be revisited, insert Amount as an editable step with prefill.
 
-**Recommended path after result:** Result (edit OK) → **Class** → Quote / attribution (name + message; message prefilled) → **Clear** (recapitulation only).
+**Recommended path after result:** Result (edit OK) → **Quote** (class modal + attribution; message prefilled) → **Clear** (recapitulation only).
 
 ---
 
@@ -208,7 +208,7 @@ Tabs stay at three (**Home · History · Funds**). Profile and early Evaluate ar
 
 **Interactions**
 
-- Valid tonnes → **Class**.
+- Valid tonnes → **Quote**.
 - Invalid → inline validation.
 - Back → previous (Home or Evaluate result).
 
@@ -216,51 +216,58 @@ Skip this screen when arriving from Evaluate result with a confirmed amount (sti
 
 ---
 
-### 7. Clear · Class
+### 7. Class modal
 
-**Purpose.** Pick a Klima carbon class (e.g. Biochar, Forest conservation). Users pick a class, not a specific on-chain token. List is already filtered to classes that accept fractional tonnes ([product.md](product.md)) — no whole-tonne rounding UI.
+**Purpose.** Pick a Klima carbon class (e.g. Biochar, Forest conservation) without leaving Quote. Users pick a class, not a specific on-chain token. List is already filtered to classes that accept fractional tonnes ([product.md](product.md)) — no whole-tonne rounding UI. Opened from Quote; not a stack route.
 
 **Content**
 
-- Title: Choose a project type.
-- List from `GET /classes`: name + short description if the API provides one.
-- Selected state on one row.
-- Primary: **Continue** (enabled when a class is selected).
-- Secondary: **I don’t know** — always enabled; picks the cheapest eligible class for the current tonnes and advances immediately (no need to select a row first).
-- Tonnes summary chip: “Clearing X tCO₂e”.
+- Title: Choose a project type (or equivalent short heading).
+- **Select at the top** — control listing classes from `GET /classes` (display `name`; value is `carbonClass`). Include an **I don’t know** option that means “no preference / omit class.”
+- Below the select, a two-column preview of the **currently selected** class (not a scrolling list of cards):
+  - **Left:** picture of the selected class from `imageUrl` (backend always returns one — class AVIF or default). Never a broken image.
+  - **Right:** short description of the selected class (`description` when present; otherwise a quiet “No description” / empty state).
+- When **I don’t know** is selected: show a neutral preview (no specific project picture/description) explaining that we’ll pick a suitable class for the tonnes.
+- Primary: **Done** / **Use this class** — closes the modal and applies the selection on Quote.
+- Secondary: dismiss (backdrop / Close) without changing the prior selection if the user cancels mid-edit — or apply only on Done; pick one pattern and stay consistent (prefer: Done commits, Close/backdrop cancels).
 
 **Interactions**
 
-- Select class → Continue → **Quote / attribution** (name + message). Quote fetch + advance to Clear happen on **Get quote**.
-- **I don’t know** → prefer omitting `carbonClass` on `POST /quotes` so the backend auto-picks the cheapest liquid class (or equivalent client-side pick) → same attribution path → **Clear**. Show the chosen class name on Clear once the quote returns.
-- Back → Amount or Evaluate result.
+- Changing the select updates the left picture and right description immediately (same modal, no navigation).
+- Confirming a specific class → Quote shows that class as the chosen project type; `POST /quotes` includes `carbonClass`.
+- Confirming **I don’t know** → Quote shows that preference; `POST /quotes` **omits** `carbonClass` so the backend auto-picks the cheapest liquid class. Show the chosen class name on **Clear** once the quote returns.
+- Load classes when the modal opens (or when Quote mounts); tolerate cold start with a spinner inside the modal.
+- Not a full-screen stack step — Back from Quote still goes to Amount or Evaluate result.
 
 **Not here**
 
 - Live wholesale prices, token IDs, or chain details.
+- Tonnes editing, attribution fields, or **Get quote** — those stay on Quote.
 - The irreversible clear control — that lives only on **Clear**.
 
 ---
 
-### 7b. Quote (attribution)
+### 7b. Quote (attribution + class)
 
-**Purpose.** Collect tonnes (when combined), certificate name, and optional message; fetch a marked-up quote; then advance to the irreversible Clear page. Route: `/quote`. Early builds may combine Amount / Class / Attribution on this screen, as long as **Confirm and clear** is not here.
+**Purpose.** Collect tonnes (when combined), carbon class, certificate name, and optional message; fetch a marked-up quote; then advance to the irreversible Clear page. Route: `/quote`. Early builds may combine Amount · Class · Attribution on this screen, as long as **Confirm and clear** is not here.
 
 **Content**
 
 - Tonnes field when Amount is combined here (positive tCO₂e).
+- **Project type / class** — summary of the current choice (class name, or **I don’t know**). Tap opens the **Class modal**. Default may be **I don’t know** until the user picks.
 - **Name on certificate** (`beneficiaryString`) — text field, required. Prefill with Clerk first + last name when set, else email local-part; user can edit.
 - Optional **message** (`retirementMessage`). When arriving from Evaluate, prefill with the LLM `suggestedRetirementMessage` from that evaluation; otherwise empty. Editable.
 - No wallet field. Do not show `beneficiaryAddress` unless we later add an advanced “technical details” disclosure; default is hide.
-- No on-screen quote summary (price / class / expiry). That recapitulation lives only on **Clear**; Back from Clear returns here to edit.
-- Primary: **Get quote** — validates name (and tonnes when shown), calls `POST /quotes`, and on success pushes **Clear**. Busy = ripple spinner only (see Busy buttons). Do not swap the label to “Continue” after a quote; one CTA does fetch + advance.
+- No on-screen quote summary (price / class / expiry from the quote response). That recapitulation lives only on **Clear**; Back from Clear returns here to edit. (The class **choice** summary above is fine; do not show `userTotal` here.)
+- Primary: **Get quote** — validates name (and tonnes when shown), calls `POST /quotes` with `carbonClass` when a specific class is selected (omit when **I don’t know**), and on success pushes **Clear**. Busy = ripple spinner only (see Busy buttons). Do not swap the label to “Continue” after a quote; one CTA does fetch + advance.
 - Secondary: Back.
 
 **Interactions**
 
+- Tap project type → **Class modal**.
 - Validate required fields before calling the API. Show spinner on the CTA until the quote returns. If quote fails, error + retry — do not advance to Clear.
 - On success → push **Clear** (`/clear`) with quote id, tonnes, class, price, expiry, name, and message.
-- Back → Class or Amount.
+- Back → Amount or Evaluate result.
 
 ---
 
@@ -478,7 +485,7 @@ Skip this screen when arriving from Evaluate result with a confirmed amount (sti
 ```
 Welcome → Sign in → Home
   → Evaluate → Result (edit tonnes)
-    → Class → Quote (attribution) → Clear (recap)
+    → Quote (class modal + attribution) → Clear (recap)
       → (insufficient) Deposit → Clear
         → Progress → Certificate → Home
 ```
@@ -496,7 +503,7 @@ User may leave with a mental note (or we keep last suggestion in session for “
 ### C. Known tonnage, already funded
 
 ```
-Home → Clear → Amount → Class → Quote → Clear → Progress → Certificate
+Home → Clear → Amount → Quote (class modal) → Clear → Progress → Certificate
 ```
 
 ### D. Quota exhausted
@@ -579,7 +586,7 @@ Sign-in → Forgot password? → Reset password (email → code + new password)
 | M1 App shell         | Tabs, brand header (logo + name + profile icon), API client, cold-start handling |
 | M2 Auth and account  | Welcome, Sign-in, Reset password, Home CTAs, Funds (funded USD only), Profile (header), Deposit |
 | M3 Evaluate          | Evaluate, Result, Quota empty                     |
-| M4a Quote | Amount, Class, Quote (`/quote`, attribution with quote) |
+| M4a Quote | Amount, Quote (`/quote`: class modal + attribution), Class modal |
 | M4b Clear | Clear (`/clear` recap), Progress, deposit handoff |
 | M5 Certificate       | Certificate success, History, Detail              |
 | M6 EAS               | Full A/C/E flows against staging                  |

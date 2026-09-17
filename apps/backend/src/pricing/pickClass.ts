@@ -38,6 +38,7 @@ function mostLiquidCredit(
 
 /**
  * Cheapest class (by reference USDC/t) with at least `tonnes` of liquid credit.
+ * Expects a catalog already filtered (named, non-Puro) via `discover()`.
  * One candidate per class (most-liquid credit when known); ties break on liquidity.
  */
 export function pickCheapestLiquid(
@@ -90,7 +91,10 @@ export function pickCheapestLiquid(
   return picked
 }
 
-/** Resolve a user-selected class id against discover results. */
+/**
+ * Resolve a user-selected class id against discover results.
+ * Expects a catalog already filtered via `discover()`.
+ */
 export function resolveCarbonClass(
   classes: KlimaCarbonClass[],
   carbonClassId: string,

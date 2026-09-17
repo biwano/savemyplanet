@@ -23,6 +23,7 @@ In the **app UI**, prefer **clear** / **clearing** / **cleared** (emotional, bra
 3. **Clear carbon (retire credits)** — users choose a **Klima carbon class** (e.g., Biochar, Forest conservation) and confirm the tonnage. The backend executes the retirement via x402 and returns a certificate. App copy says **clear**; the operation is a credit retirement.
 
    **Fractional tonnes only:** never offer classes that require **whole tonnes** (e.g. Toucan Puro). `GET /classes`, quotes, and retirements only expose classes that accept the normal minimum (`0.001` t). The app never asks the user to round up or pick around whole-tonne rules.
+   **Named classes only:** ignore Klima catalog entries with no human `name` (or a name that is only the `0x…` id). Auto-pick and `GET /classes` use the same filter.
 
    **Default beneficiary address:** the backend derives a stable on-chain `beneficiaryAddress` from the user’s UUID and uses it by default when retiring (certificate attribution). Users do not supply or manage wallets for this.
 
