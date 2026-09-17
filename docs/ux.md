@@ -223,10 +223,11 @@ Skip this screen when arriving from Evaluate result with a confirmed amount (sti
 **Content**
 
 - Title: Support a technology (or equivalent short heading).
-- **Select at the top** — control listing classes from `GET /classes` (display `name` **and marked-up price per tonne** when `pricePerTonne` is present; value is `carbonClass`). Format money as USD (e.g. **Biochar · ~$112.00/t**, same style as other USD amounts). Include a **Choose for me** option that means “no preference / omit class” (no $/t on that option).
-- Below the select, a two-column preview of the **currently selected** class (not a scrolling list of cards):
+- **Select at the top** — control listing classes from `GET /classes` (display `name`; value is `carbonClass`). Include a **Choose for me** option that means “no preference / omit class”.
+- Just below the select: the selected class’s marked-up **~$/t** when `pricePerTonne` is present (omit when missing or when **Choose for me**). Format money as USD (e.g. **~$112.00/t**, same style as other USD amounts).
+- Below that, a two-column preview of the **currently selected** class (not a scrolling list of cards):
   - **Left:** picture of the selected class from `imageUrl` (backend always returns one — class AVIF or default). Never a broken image.
-  - **Right:** short description of the selected class (`description` when present; otherwise a quiet “No description” / empty state), plus the same **~$/t** line when `pricePerTonne` is present (omit the line if the field is missing).
+  - **Right:** short description of the selected class (`description` when present; otherwise a quiet “No description” / empty state).
 - When **Choose for me** is selected: show a neutral preview (no specific project picture/description/price) explaining that we’ll pick a suitable technology for the tonnes.
 - Primary: **Support this technology** — closes the modal and applies the selection on Quote.
 - Secondary: dismiss (backdrop / Close) without changing the prior selection if the user cancels mid-edit — or apply only on Done; pick one pattern and stay consistent (prefer: Done commits, Close/backdrop cancels).

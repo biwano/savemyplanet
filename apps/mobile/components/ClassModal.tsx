@@ -27,11 +27,6 @@ export function classChoiceLabel(choice: ClassChoice): string {
   return choice.kind === 'auto' ? 'Choose for me' : choice.name
 }
 
-function classOptionLabel(c: APICarbonClass): string {
-  if (c.pricePerTonne == null) return c.name
-  return `${c.name} · ${formatPricePerTonne(c.pricePerTonne)}`
-}
-
 type ClassModalProps = {
   visible: boolean
   /** Last committed choice on Quote — seed for draft when the modal mounts. */
@@ -148,7 +143,7 @@ export function ClassModal({
                   <option value={UNKNOWN_VALUE}>Choose for me</option>
                   {classes.map((c) => (
                     <option key={c.carbonClass} value={c.carbonClass}>
-                      {classOptionLabel(c)}
+                      {c.name}
                     </option>
                   ))}
                 </select>
@@ -176,7 +171,7 @@ export function ClassModal({
                       {classes.map((c) => (
                         <SelectOption
                           key={c.carbonClass}
-                          label={classOptionLabel(c)}
+                          label={c.name}
                           selected={
                             draft.kind === 'class' &&
                             draft.carbonClass === c.carbonClass
@@ -188,6 +183,12 @@ export function ClassModal({
                   ) : null}
                 </View>
               )}
+
+              {selectedClass?.pricePerTonne != null ? (
+                <Text style={styles.selectPrice}>
+                  {formatPricePerTonne(selectedClass.pricePerTonne)}
+                </Text>
+              ) : null}
 
               <View style={styles.preview}>
                 {draft.kind === 'auto' ? (
@@ -211,18 +212,11 @@ export function ClassModal({
                     ) : (
                       <NeutralPreviewImage />
                     )}
-                    <View style={styles.previewCopy}>
-                      <Text style={typography.muted}>
-                        {selectedClass?.description?.trim()
-                          ? selectedClass.description
-                          : 'No description'}
-                      </Text>
-                      {selectedClass?.pricePerTonne != null ? (
-                        <Text style={styles.previewPrice}>
-                          {formatPricePerTonne(selectedClass.pricePerTonne)}
-                        </Text>
-                      ) : null}
-                    </View>
+                    <Text style={[typography.muted, styles.previewCopy]}>
+                      {selectedClass?.description?.trim()
+                        ? selectedClass.description
+                        : 'No description'}
+                    </Text>
                   </>
                 )}
               </View>
@@ -393,11 +387,11 @@ const styles = StyleSheet.create({
   },
   previewCopy: {
     flex: 1,
-    gap: spacing.xs,
   },
-  previewPrice: {
+  selectPrice: {
     ...typography.body,
     fontWeight: '600',
     color: colors.ink,
+    marginTop: spacing.sm,
   },
 })
