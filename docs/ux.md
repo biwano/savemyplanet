@@ -223,17 +223,23 @@ Skip this screen when arriving from Evaluate result with a confirmed amount (sti
 **Content**
 
 - Title: Support a technology (or equivalent short heading).
-- **Select at the top** — control listing classes from `GET /classes` (display `name`; value is `carbonClass`). Include a **Choose for me** option that means “no preference / omit class.”
+- **Select at the top** — control listing classes from `GET /classes` (display `name` **and marked-up price per tonne** when `pricePerTonne` is present; value is `carbonClass`). Format money as USD (e.g. **Biochar · ~$112.00/t**, same style as other USD amounts). Include a **Choose for me** option that means “no preference / omit class” (no $/t on that option).
 - Below the select, a two-column preview of the **currently selected** class (not a scrolling list of cards):
   - **Left:** picture of the selected class from `imageUrl` (backend always returns one — class AVIF or default). Never a broken image.
-  - **Right:** short description of the selected class (`description` when present; otherwise a quiet “No description” / empty state).
-- When **Choose for me** is selected: show a neutral preview (no specific project picture/description) explaining that we’ll pick a suitable technology for the tonnes.
+  - **Right:** short description of the selected class (`description` when present; otherwise a quiet “No description” / empty state), plus the same **~$/t** line when `pricePerTonne` is present (omit the line if the field is missing).
+- When **Choose for me** is selected: show a neutral preview (no specific project picture/description/price) explaining that we’ll pick a suitable technology for the tonnes.
 - Primary: **Support this technology** — closes the modal and applies the selection on Quote.
 - Secondary: dismiss (backdrop / Close) without changing the prior selection if the user cancels mid-edit — or apply only on Done; pick one pattern and stay consistent (prefer: Done commits, Close/backdrop cancels).
 
+**Price per tonne (indicative)**
+
+- Show **our** marked-up USD per tonne from `GET /classes` (`pricePerTonne` in cents → display as dollars). Never show Klima wholesale.
+- Treat it as **about** / indicative (tilde or “About” wording is fine). Live charge for the chosen tonnes comes only from `POST /quotes` and is recapitulated on **Clear** (`userTotal`) — do not imply the picker $/t is a locked quote.
+- Quote’s **Support a technology** summary stays name / **Choose for me** only (no $/t or `userTotal` on Quote).
+
 **Interactions**
 
-- Changing the select updates the left picture and right description immediately (same modal, no navigation).
+- Changing the select updates the left picture, right description, and $/t line immediately (same modal, no navigation).
 - Confirming a specific class → Quote shows that class under **Support a technology**; `POST /quotes` includes `carbonClass`.
 - Confirming **Choose for me** → Quote shows that preference; `POST /quotes` **omits** `carbonClass` so the backend auto-picks the cheapest liquid class. Show the chosen class name on **Clear** once the quote returns.
 - Load classes when the modal opens (or when Quote mounts); tolerate cold start with a spinner inside the modal.
@@ -241,7 +247,8 @@ Skip this screen when arriving from Evaluate result with a confirmed amount (sti
 
 **Not here**
 
-- Live wholesale prices, token IDs, or chain details.
+- Wholesale Klima prices, token IDs, or chain details.
+- Locked quote totals (`userTotal`) or expiry — those stay on **Clear**.
 - Tonnes editing, attribution fields, or **Get quote** — those stay on Quote.
 - The irreversible clear control — that lives only on **Clear**.
 
@@ -559,7 +566,7 @@ Sign-in → Forgot password? → Reset password (email → code + new password)
 - Primary verb in the UI: **clear** / **clearing** / **cleared** (brand-aligned, emotional). Never lead with “offset.”
 - Under the hood the product still **retires** credits (API paths, Klima, certificates). Keep `retire` / `retirement` in code that describes mechanics, and field names (`retirementMessage`, `/retirements`). Do not put “retire” on buttons, headlines, or **route names** — mobile stack routes are `/quote` and `/clear`.
 - Say **estimate** for the LLM step; reserve **confirm** for the irreversible CTA label (**Confirm and clear**), not for the stack screen name (that screen is **Clear**).
-- Money: **USD only** in the UI — balances, quotes, deposit amount, and success copy. Do not show a currency toggle or EUR amounts. Card networks may still bill the cardholder in their local currency; we do not surface that FX in the app.
+- Money: **USD only** in the UI — balances, quotes, deposit amount, Class modal **~/t**, and success copy. Do not show a currency toggle or EUR amounts. Card networks may still bill the cardholder in their local currency; we do not surface that FX in the app. Class picker $/t is indicative; the amount charged is always the Clear recapitulation.
 - Permanence warning appears **once**, on **Clear** — not on every prior step.
 - The irreversible CTA is only on **Clear**, labeled **Confirm and clear** (never **Confirm retire** in user-facing copy).
 - Avoid explaining markup, Klima, or Base unless the user opens an optional About later (out of v1 scope).

@@ -63,9 +63,34 @@ describe('GET /classes', () => {
       imageUrl: expect.stringMatching(
         /\/static\/carbonclasses\/biochar\.avif$/,
       ),
+      // $83.20 wholesale × 40% → $116.48 = 11648 cents
+      pricePerTonne: 11_648,
     })
     expect(body.classes[0].description).toEqual(expect.any(String))
     expect(JSON.stringify(body)).not.toMatch(/priceUsdc|liquidity|klima/i)
+  })
+
+  it('omits pricePerTonne when discover has no reference', async () => {
+    mockKlimaPricing({
+      discover: {
+        carbonClasses: [
+          {
+            carbonClassId: '0x4d6fce4eb76f093f5948dcb7ff4364427d70bcb8',
+            name: 'Biochar',
+            priceUsdcPerTonneFormatted: null,
+          },
+        ],
+      },
+    })
+
+    const app = createTestApp()
+    const res = await app.request('/classes', {
+      headers: authHeader(),
+    })
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.classes[0]).not.toHaveProperty('pricePerTonne')
   })
 
   it('localizes description with ?lang=fr', async () => {

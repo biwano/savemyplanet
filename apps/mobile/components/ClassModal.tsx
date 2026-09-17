@@ -13,6 +13,7 @@ import {
 
 import { Button } from '@/components/ui/Button'
 import { RippleSpinner } from '@/components/ui/RippleSpinner'
+import { formatPricePerTonne } from '@/lib/format'
 import { colors, spacing, typography } from '@/lib/theme'
 
 /** Committed / draft preference: omit class on quote, or a specific Klima class. */
@@ -24,6 +25,11 @@ export const DEFAULT_CLASS_CHOICE: ClassChoice = { kind: 'auto' }
 
 export function classChoiceLabel(choice: ClassChoice): string {
   return choice.kind === 'auto' ? 'Choose for me' : choice.name
+}
+
+function classOptionLabel(c: APICarbonClass): string {
+  if (c.pricePerTonne == null) return c.name
+  return `${c.name} · ${formatPricePerTonne(c.pricePerTonne)}`
 }
 
 type ClassModalProps = {
@@ -81,6 +87,11 @@ export function ClassModal({
       ? classes.find((c) => c.carbonClass === draft.carbonClass)
       : undefined
 
+  const triggerLabel =
+    selectedClass != null
+      ? classOptionLabel(selectedClass)
+      : classChoiceLabel(draft)
+
   function selectValue(value: string) {
     setDraft(choiceFromValue(value, classes))
     setSelectOpen(false)
@@ -127,7 +138,6 @@ export function ClassModal({
               contentContainerStyle={styles.scrollContent}
               keyboardShouldPersistTaps="handled"
             >
-              <Text style={typography.label}>Support a technology</Text>
               {Platform.OS === 'web' ? (
                 <select
                   aria-label="Support a technology"
@@ -138,7 +148,7 @@ export function ClassModal({
                   <option value={UNKNOWN_VALUE}>Choose for me</option>
                   {classes.map((c) => (
                     <option key={c.carbonClass} value={c.carbonClass}>
-                      {c.name}
+                      {classOptionLabel(c)}
                     </option>
                   ))}
                 </select>
@@ -146,14 +156,12 @@ export function ClassModal({
                 <View>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={`Support a technology: ${classChoiceLabel(draft)}`}
+                    accessibilityLabel={`Support a technology: ${triggerLabel}`}
                     accessibilityState={{ expanded: selectOpen }}
                     onPress={() => setSelectOpen((open) => !open)}
                     style={styles.selectTrigger}
                   >
-                    <Text style={styles.selectTriggerText}>
-                      {classChoiceLabel(draft)}
-                    </Text>
+                    <Text style={styles.selectTriggerText}>{triggerLabel}</Text>
                     <Text style={styles.selectChevron}>
                       {selectOpen ? '▴' : '▾'}
                     </Text>
@@ -168,7 +176,7 @@ export function ClassModal({
                       {classes.map((c) => (
                         <SelectOption
                           key={c.carbonClass}
-                          label={c.name}
+                          label={classOptionLabel(c)}
                           selected={
                             draft.kind === 'class' &&
                             draft.carbonClass === c.carbonClass
@@ -203,11 +211,18 @@ export function ClassModal({
                     ) : (
                       <NeutralPreviewImage />
                     )}
-                    <Text style={[typography.muted, styles.previewCopy]}>
-                      {selectedClass?.description?.trim()
-                        ? selectedClass.description
-                        : 'No description'}
-                    </Text>
+                    <View style={styles.previewCopy}>
+                      <Text style={typography.muted}>
+                        {selectedClass?.description?.trim()
+                          ? selectedClass.description
+                          : 'No description'}
+                      </Text>
+                      {selectedClass?.pricePerTonne != null ? (
+                        <Text style={styles.previewPrice}>
+                          {formatPricePerTonne(selectedClass.pricePerTonne)}
+                        </Text>
+                      ) : null}
+                    </View>
                   </>
                 )}
               </View>
@@ -378,5 +393,11 @@ const styles = StyleSheet.create({
   },
   previewCopy: {
     flex: 1,
+    gap: spacing.xs,
+  },
+  previewPrice: {
+    ...typography.body,
+    fontWeight: '600',
+    color: colors.ink,
   },
 })

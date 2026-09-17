@@ -133,14 +133,26 @@ Contract lists `GET /classes`; the route was **never implemented** (`routes/clas
 
 - [x] **Done when:** authenticated `GET /classes` returns named classes only in the frozen shape (always an `imageUrl`, curated `description` when we have one); whole-tonne-only filtered; static AVIFs served with cache headers; colocated route tests pass; auto-pick / resolve ignore nameless classes.
 
-- [x] `GET /classes` (auth): optional query `lang` (`en` \| `fr`, default `en`; unknown → `en`). `discover()` → keep classes with a **human `name`** only (drop missing names and names that are just the `0x…` id). Map to `{ carbonClass, name, description?, imageUrl }` with description in the requested language. Never expose Klima reference USDC/t, liquidity, token ids, or chain fields.
+- [x] `GET /classes` (auth): optional query `lang` (`en` \| `fr`, default `en`; unknown → `en`). `discover()` → keep classes with a **human `name`** only (drop missing names and names that are just the `0x…` id). Map to `{ carbonClass, name, description?, imageUrl, pricePerTonne? }` with description in the requested language and optional marked-up `pricePerTonne` ([B6c](#b6c-classes-price-per-tonne--api-amendment)). Never expose Klima wholesale USDC/t, liquidity, token ids, or chain fields.
 - [x] Filter whole-tonne-only classes the same way quotes do ([product.md](product.md)).
 - [x] **Descriptions:** curated copy researched from public sources from the class **name** (not wholesale/price fluff), stored per `lang` (`en` required, `fr` for v1). Keyed by `carbonClass` id. New named classes without curated copy may omit `description` until researched.
 - [x] **Images:** generate AVIF assets under `apps/backend/static/carbonclasses/` (display-sized for the Class modal — ~512px on the long edge, not 1024 masters). One file per known class + `default.avif`. Serve from the backend at `/static/*` (`serveStatic` rooted at `static/`) with `Cache-Control: public, max-age=86400`. `imageUrl` is always absolute (`…/static/carbonclasses/…`); if a class has no dedicated file, use `default.avif`.
 - [x] **Name filter at catalog parse:** `discover()` / `parseDiscoverResult` drops nameless and whole-tonne-only (Puro) classes once; `GET /classes`, `pickCheapestLiquid`, and `resolveCarbonClass` consume that filtered catalog.
-- [x] Shared `APICarbonClass`: `imageUrl: string` (required on the wire); `description?` optional.
+- [x] Shared `APICarbonClass`: `imageUrl: string` (required on the wire); `description?` optional; `pricePerTonne?` marked-up USD cents ([B6c](#b6c-classes-price-per-tonne--api-amendment)).
 - [x] Mount + rate-limit like other read routes (N1 table already lists `/classes`). Colocated `routes/classes.test.ts` (401; 200 shape; no wholesale; nameless excluded). Static image route returns AVIF + cache headers (default file exists).
 - [x] **No change needed** on `POST /quotes` body shape — optional `carbonClass` + auto-pick when omitted already works (auto-pick must respect the name filter).
+
+### B6c. Classes price per tonne — API amendment
+
+Contract amendment for Class modal $/t ([ux.md](ux.md) §7). Does not reopen B6 quotes. Docs-first; implement before shipping the Class modal price UI.
+
+- [x] **Done when:** authenticated `GET /classes` includes optional marked-up `pricePerTonne` (USD cents) derived from discover reference USDC/t × `MARKUP_BPS` (same ceil-to-cents spirit as quotes); wholesale never on the wire; `APICarbonClass` + `packages/api-types` + colocated tests updated; Class modal can display ~/t per [ux.md](ux.md).
+
+- [x] Extend wire shape: `{ carbonClass, name, description?, imageUrl, pricePerTonne? }`. Omit `pricePerTonne` when discover has no usable reference (`null` / missing / non-finite) — do not invent a price.
+- [x] Compute from Klima `priceUsdcPerTonneFormatted` (wholesale dollars/t) → micros → `applyMarkup` / ceil cents → integer USD cents on the wire. Reuse markup helpers; do not hand-roll a second rounding path.
+- [x] Still never expose raw Klima USDC/t, liquidity, token ids, or chain fields.
+- [x] Update `APICarbonClass`, `toApiCarbonClasses`, route tests (assert marked-up field present when discover has a price; assert wholesale string absent; omit when no reference).
+- [x] Mobile (after API): Class modal select + preview show ~/t per [ux.md](ux.md); Quote summary still name-only.
 
 ### B7. Evaluate activity (LLM)
 
@@ -274,13 +286,13 @@ User-facing JSON. Field names are the freeze; change only with a version bump.
 | POST | `/account/deposit` | yes | `{ clientSecret, paymentIntentId }` (presentment `usd` \| `eur`) |
 | POST | `/account/credit` | admin | `{ account }` (v1 funding) |
 | POST | `/evaluations` | yes | `{ suggestedTonnes, rationale, suggestedRetirementMessage, evaluationsRemaining }` (403/409 if quota exhausted) |
-| GET | `/classes` | yes | Query `lang` optional (`en` \| `fr`, default `en`; unknown → `en`). `{ classes: [{ carbonClass, name, description?, imageUrl }, ...] }` (named discover only; curated description in `lang`; `imageUrl` always; filter whole-tonne-only; no wholesale) |
+| GET | `/classes` | yes | Query `lang` optional (`en` \| `fr`, default `en`; unknown → `en`). `{ classes: [{ carbonClass, name, description?, imageUrl, pricePerTonne? }, ...] }` (named discover only; curated description in `lang`; `imageUrl` always; optional marked-up `pricePerTonne` USD cents from discover reference × markup; filter whole-tonne-only; no wholesale) |
 | POST | `/quotes` | yes | `{ quoteId, carbonClass, tonnes, userTotal, currency, expiresAt }` |
 | POST | `/retirements` | yes | `{ id, status, createdAt, certificateUrl? }` (server sets `beneficiaryAddress` from user UUID; body still takes `beneficiaryString`) |
 | GET | `/retirements` | yes | `{ items: [...] }` |
 | GET | `/retirements/:id` | yes | `{ id, status, tonnes, userTotal, certificateUrl?, txHash? }` |
 
-`account.available` / quote `userTotal` are **marked-up**. Wholesale Klima amounts never appear.
+`account.available` / quote `userTotal` / class `pricePerTonne` are **marked-up**. Wholesale Klima amounts never appear. Class `pricePerTonne` is indicative (discover reference + markup); live charge is always `userTotal` from `POST /quotes`.
 
 After B10, treat this table as the mobile source of truth. Put shared types in `packages/api-types` only when the Expo app exists and would otherwise copy them.
 
@@ -330,8 +342,9 @@ Screens: Clear · Amount / **Quote** (`/quote`; early build may combine Amount �
 - [x] **Done when:** user can set tonnes, pick a class (or **Choose for me**), set attribution, get a marked-up quote, and **Get quote** advances to Clear without seeing Klima’s wholesale total.
 
 - [x] Browse `GET /classes` and select one in the **Class modal** on Quote (select at top; selected class **picture left**, **description right** — per [ux.md](ux.md)). Or choose **Choose for me** / omit `carbonClass` so the backend auto-picks (`POST /quotes` already supports this).
+- [x] Show marked-up indicative **~/t** in the Class modal (select options + preview) from `pricePerTonne` once [B6c](#b6c-classes-price-per-tonne--api-amendment) lands — per [ux.md](ux.md). Not on Quote summary; not wholesale.
 - [x] Request `/quotes` for the chosen tonnes (+ class when selected).
-- [x] Show **our** price (`userTotal`), tonnes, and returned class on **Clear** only. Do not show Klima wholesale. Do not show price on Quote.
+- [x] Show **our** price (`userTotal`), tonnes, and returned class on **Clear** only. Do not show Klima wholesale. Do not show quote `userTotal` on Quote.
 - [x] Collect attribution (`beneficiaryString` required; optional `retirementMessage`) **before** Clear; primary **Get quote** pushes Clear with quote + attribution params.
 - [x] Do not ask the user for a wallet / `beneficiaryAddress` — backend applies the UUID-derived default.
 
@@ -557,6 +570,7 @@ EIP-3009 / Klima `salt` is **out of scope** to “fix”: we do not mint nonces;
 - [x] B1–B4 skeleton, DB, auth, ledger
 - [x] B5–B6 Klima reads + marked-up quotes
 - [x] B6b `GET /classes` (named-only; curated descriptions; AVIF under `static/carbonclasses`; blocks M4a class modal)
+- [x] B6c `GET /classes` `pricePerTonne?` (marked-up indicative $/t; Class modal UX)
 - [x] B7 evaluations
 - [x] B7b evaluation quota + derived beneficiaryAddress
 - [x] B7c persist OpenRouter evaluation costs (parallel OK; does not block API freeze)

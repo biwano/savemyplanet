@@ -22,6 +22,8 @@ describe('toApiCarbonClasses', () => {
         name: 'Biochar',
         description: expect.stringContaining('biochar'),
         imageUrl: 'https://api.test/static/carbonclasses/biochar.avif',
+        // $80 wholesale × 40% default markup → $112 = 11200 cents
+        pricePerTonne: 11_200,
       },
     ])
   })
@@ -44,5 +46,16 @@ describe('toApiCarbonClasses', () => {
       imageUrl: '/default.avif',
     })
     expect(row).not.toHaveProperty('description')
+    expect(row).not.toHaveProperty('pricePerTonne')
+  })
+
+  it('omits pricePerTonne when discover reference is null', () => {
+    const noPrice: KlimaCarbonClass = {
+      carbonClassId: '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+      name: 'No Price Class',
+      priceUsdcPerTonneFormatted: null,
+    }
+    const [row] = toApiCarbonClasses([noPrice], (file) => `/${file}`, 'en')
+    expect(row).not.toHaveProperty('pricePerTonne')
   })
 })

@@ -1,4 +1,6 @@
 import type { KlimaCarbonClass } from '../klima/index'
+import { markupBps } from '../pricing/config'
+import { markedUpCentsFromUsdcDollarsFormatted } from '../pricing/markup'
 import type { APICarbonClass } from './api'
 import {
   descriptionForCarbonClass,
@@ -12,6 +14,7 @@ export function toApiCarbonClasses(
   imageUrlForFile: (imageFile: string) => string,
   lang: CarbonClassLang,
 ): APICarbonClass[] {
+  const bps = markupBps()
   const out: APICarbonClass[] = []
 
   for (const cc of classes) {
@@ -29,6 +32,16 @@ export function toApiCarbonClasses(
     }
     if (description) {
       item.description = description
+    }
+    const wholesale = cc.priceUsdcPerTonneFormatted
+    if (wholesale != null) {
+      const pricePerTonne = markedUpCentsFromUsdcDollarsFormatted(
+        wholesale,
+        bps,
+      )
+      if (pricePerTonne != null) {
+        item.pricePerTonne = pricePerTonne
+      }
     }
     out.push(item)
   }

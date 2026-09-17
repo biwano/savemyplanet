@@ -6,6 +6,12 @@ export function formatUsdCents(cents: number): string {
   }).format(cents / 100)
 }
 
+/** Indicative Class modal price (e.g. 11200 → "~$112.00/t"). */
+export function formatPricePerTonne(cents: number): string {
+  if (!Number.isFinite(cents) || cents <= 0) return '~—/t'
+  return `~${formatUsdCents(cents)}/t`
+}
+
 /** Format tCO₂e for chrome (e.g. 1.25 → "1.25 t"). */
 export function formatTonnes(tonnes: number): string {
   if (!Number.isFinite(tonnes) || tonnes <= 0) return '0 t'

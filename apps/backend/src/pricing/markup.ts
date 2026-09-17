@@ -21,6 +21,38 @@ export function parseKlimaTotalMicros(total: string): bigint {
   return BigInt(trimmed)
 }
 
+/**
+ * Parse discover reference `priceUsdcPerTonneFormatted` (decimal USDC dollars)
+ * into USDC micros. Returns undefined when the string is unusable.
+ * More than 6 fractional digits are truncated (not rounded).
+ */
+export function parseUsdcDollarsFormattedToMicros(
+  formatted: string,
+): bigint | undefined {
+  const trimmed = formatted.trim()
+  if (!/^\d+(\.\d+)?$/.test(trimmed)) {
+    return undefined
+  }
+  const [wholePart, fracPart = ''] = trimmed.split('.')
+  const frac = (fracPart + '000000').slice(0, USDC_DECIMALS)
+  return BigInt(wholePart) * 10n ** BigInt(USDC_DECIMALS) + BigInt(frac)
+}
+
+/**
+ * Marked-up USD cents per tonne from discover wholesale dollars/t.
+ * Same markup + ceil-to-cents path as quote totals.
+ */
+export function markedUpCentsFromUsdcDollarsFormatted(
+  formatted: string,
+  markupBps: number,
+): number | undefined {
+  const micros = parseUsdcDollarsFormattedToMicros(formatted)
+  if (micros === undefined || micros <= 0n) {
+    return undefined
+  }
+  return applyMarkup(micros, markupBps).userTotalCents
+}
+
 export type MarkedUpTotals = {
   klimaTotalCents: number
   userTotalCents: number
