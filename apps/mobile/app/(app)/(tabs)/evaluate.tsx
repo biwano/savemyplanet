@@ -186,7 +186,7 @@ export default function EvaluateScreen() {
       return
     }
     router.push({
-      pathname: '/(app)/retire',
+      pathname: '/(app)/quote',
       params: {
         tonnes: String(tonnesNumber),
         message: result.suggestedRetirementMessage,
@@ -222,7 +222,7 @@ export default function EvaluateScreen() {
         </Text>
         <Button
           label="Clear carbon"
-          onPress={() => router.push('/(app)/retire')}
+          onPress={() => router.push('/(app)/quote')}
         />
         <Button
           label="Back to Home"

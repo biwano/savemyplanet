@@ -231,7 +231,7 @@ Shared demo / integration environment before (and while) building mobile. Stagin
 
 ### S2. Expo web → staging API
 
-- [ ] **Done when:** an Expo **web** build is hosted on a **Cloudflare Workers** static-assets Worker and talks only to the staging API URL; sign-in (Clerk), health, and at least evaluate → quote → confirm retire (fake) works in a browser.
+- [ ] **Done when:** an Expo **web** build is hosted on a **Cloudflare Workers** static-assets Worker and talks only to the staging API URL; sign-in (Clerk), health, and at least evaluate → quote → clear (fake retire) works in a browser.
 
 - [x] Create `apps/mobile` early enough for web (can precede full native Phase M polish): Expo + TypeScript + Expo Router with web enabled.
 - [x] Config: `EXPO_PUBLIC_API_URL` = staging Cloud Run URL. No Klima URLs or private keys in the client.
@@ -308,28 +308,43 @@ Expo app talks **only** to our backend (config: `EXPO_PUBLIC_API_URL`). Default 
 
 Default: evaluation requires auth (simpler). Logged-out evaluate is a later contract change.
 
-### M4. Quote and confirm retire
+### M4a. Quote page
 
-- [ ] **Done when:** confirm retires and the UI does not show Klima’s total.
+Screens: Clear · Amount / Class / **Quote** (`/quote`; early build may combine Amount · Class · Attribution here). Law: [ux.md](ux.md).
 
-- [ ] Browse `/classes` and select one.
-- [ ] Request `/quotes` for the chosen tonnes + class.
-- [ ] Show **our** price (marked-up), tonnes, beneficiary name (`beneficiaryString`). Do not ask the user for a wallet/`beneficiaryAddress` — backend applies the UUID-derived default.
-- [ ] Explicit Confirm control in the UI before calling `POST /retirements`.
-- [ ] Errors: insufficient funds → prompt to deposit (Stripe).
-- [ ] After settled retirement: refresh `/me` so evaluation quota shows 10 again.
+- [ ] **Done when:** user can set tonnes and attribution, get a marked-up quote, and **Continue** to Clear without seeing Klima’s wholesale total.
+
+- [ ] Browse `/classes` and select one (or **I don’t know** / omit `carbonClass` so the backend auto-picks — per [ux.md](ux.md)).
+- [x] Request `/quotes` for the chosen tonnes (+ class when selected).
+- [x] Show **our** price (`userTotal`), tonnes, and returned class. Do not show Klima wholesale.
+- [x] Collect attribution (`beneficiaryString` required; optional `retirementMessage`) **before** Clear; primary **Continue** pushes Clear with quote + attribution params.
+- [x] Do not ask the user for a wallet / `beneficiaryAddress` — backend applies the UUID-derived default.
+
+### M4b. Clear page
+
+Screen: **Clear** (`/clear`, dedicated recapitulation). Law: [ux.md](ux.md).
+
+- [x] **Done when:** **Confirm and clear** retires via `POST /retirements` and the Clear UI never shows Klima’s total.
+
+- [x] Dedicated read-only recapitulation (tonnes, class, price you pay, expiry, name, message) with permanence warning.
+- [x] Explicit **Confirm and clear** control on this screen before calling `POST /retirements` (no clear CTA on the Quote page).
+- [x] Errors: insufficient funds → Deposit with `returnTo=clear` (Stripe); return to Clear after funding.
+- [x] After settled retirement: refresh `/me` (and account balance) so evaluation quota / Funds chrome catch up.
+- [x] Expired quote: auto-refresh once on focus / before confirm (or send Back to re-quote); never clear on a stale id.
+- [ ] **Clear · Progress** (in-flight wait) — interim success card on Clear until M5.
 
 ### M5. Certificate
 
 - [ ] **Done when:** history shows a settled item with a working certificate link.
 
+- [ ] **Clear · Progress** screen between Confirm and Certificate (replace interim Clear success card).
 - [ ] Status for in-flight retirements.
 - [ ] Open/share Carbonmark `certificateUrl` when settled.
 - [ ] History list from `GET /retirements`.
 
 ### M6. EAS
 
-- [ ] **Done when:** a preview APK/IPA (or Expo Go project) runs the full flow against **staging**: evaluate → quote → confirm → certificate (fake retire).
+- [ ] **Done when:** a preview APK/IPA (or Expo Go project) runs the full flow against **staging**: evaluate → quote → clear → certificate (fake retire).
 
 - [ ] `eas.json` development + preview profiles.
 - [ ] Point preview builds at the **staging** Cloud Run URL (`EXPO_PUBLIC_API_URL`).
@@ -537,7 +552,7 @@ EIP-3009 / Klima `salt` is **out of scope** to “fix”: we do not mint nonces;
 - [x] M1 app shell
 - [x] M2 auth (Clerk) + Funds / profile / deposit
 - [x] M3 evaluate (LLM)
-- [ ] M4–M5 retire UX (classes) + certificate
+- [ ] M4a quote → M4b clear; M5 certificate
 - [ ] M6 EAS preview (staging API + web)
 - [x] *Side:* T0–T1 endpoint test catch-up (parallel OK) — T0–T1 done
 - [x] *Side:* N1 network throttling (parallel OK)

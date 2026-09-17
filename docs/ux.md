@@ -30,8 +30,10 @@ Signed in (tab shell)
         └─ Evaluate result → handoff into Clear (tab bar hidden)
 
 Flows (pushed stacks, tab bar hidden)
-  └─ Clear: amount → class → confirm → progress → certificate
+  └─ Clear: amount → class → quote (attribution) → clear → progress → certificate
 ```
+
+**Quote** (`/quote`) collects tonnes / class / attribution and fetches a marked-up quote; early builds may combine Amount · Class · Attribution on this one screen. **Clear** (`/clear`) is always its own stack screen: a read-only recapitulation plus the irreversible **Confirm and clear** action. Editing tonnes, class, name, or message happens on Quote (or earlier steps) — never on Clear.
 
 Tabs stay at three (**Home · History · Funds**). Profile and early Evaluate are still **flows** launched from Home / header — not permanent tab buttons — but they keep the **tab bar** so the user can jump to Home, History, or Funds. Once Evaluate reaches **result** (or the user continues into Clear / Deposit), hide the tab bar so the clearing tunnel stays focused.
 
@@ -115,8 +117,8 @@ Tabs stay at three (**Home · History · Funds**). Profile and early Evaluate ar
 **Not on this screen**
 
 - History list, certificate rows, or a “Latest certificate” teaser — those belong on **History** (and Clear success). Lifetime cleared is only in the header.
-- Available balance (USD) — funds live on **Funds** (and Clear · Confirm when funding matters).
-- “Add funds when you’re ready to clear” nudge — that belongs with funding entry points (Funds / Confirm), not Home.
+- Available balance (USD) — funds live on **Funds** (and **Clear** when funding matters).
+- “Add funds when you’re ready to clear” nudge — that belongs with funding entry points (Funds / Clear), not Home.
 - Profile name or sign-out — those live on **Profile** (header icon).
 - API / health reachability status (no “API reachable” / staging probe card). Failures surface as errors on the load that failed, or via the offline banner — not a persistent diagnostics box.
 
@@ -167,10 +169,10 @@ Tabs stay at three (**Home · History · Funds**). Profile and early Evaluate ar
 
 - Help beside **Emissions estimation** → modal (AI estimate disclaimer); dismiss via Close or backdrop.
 - Edit tonnes → **Clear those emissions** uses the edited value (client validation: ≥ 0.001).
-- Clear those emissions → **Clear · Amount** with tonnes prefilled (skip re-entry), then class; also carry the LLM **suggested retirement message** into Confirm as a prefilled **message** (`retirementMessage`) — user can edit or clear it.
+- Clear those emissions → **Clear · Amount** with tonnes prefilled (skip re-entry), then class; also carry the LLM **suggested retirement message** into Quote / Attribution as a prefilled **message** (`retirementMessage`) — user can edit or clear it before **Clear**.
 - Prefer stacking: Result → Class (amount already set) to shorten the path. If amount must be revisited, insert Amount as an editable step with prefill.
 
-**Recommended path after result:** Result (edit OK) → **Class** → **Confirm** (amount + message carried forward).
+**Recommended path after result:** Result (edit OK) → **Class** → Quote / attribution (name + message; message prefilled) → **Clear** (recapitulation only).
 
 ---
 
@@ -202,7 +204,7 @@ Tabs stay at three (**Home · History · Funds**). Profile and early Evaluate ar
 - Tonnes input (decimal). Hint: minimum 0.001 tCO₂e.
 - Optional: “Not sure?” link → Evaluate.
 - Primary: **Next**.
-- Funds reminder only if useful: available USD (not a hard gate yet — gate at confirm).
+- Funds reminder only if useful: available USD (not a hard gate yet — gate at Clear).
 
 **Interactions**
 
@@ -210,7 +212,7 @@ Tabs stay at three (**Home · History · Funds**). Profile and early Evaluate ar
 - Invalid → inline validation.
 - Back → previous (Home or Evaluate result).
 
-Skip this screen when arriving from Evaluate result with a confirmed amount (still allow edit on Confirm).
+Skip this screen when arriving from Evaluate result with a confirmed amount (still allow edit via Back from Quote / Clear).
 
 ---
 
@@ -229,49 +231,70 @@ Skip this screen when arriving from Evaluate result with a confirmed amount (sti
 
 **Interactions**
 
-- Select class → Continue → request quote → **Confirm** (or show quote loading on Confirm).
-- **I don’t know** → choose the cheapest allowed class for these tonnes (prefer `POST /quotes` without `carbonClass` so the backend auto-picks; otherwise equivalent client-side pick) → **Confirm**. Show the chosen class name on Confirm once the quote returns.
+- Select class → Continue → request quote → **Quote / attribution** (name + message) with quote in hand, then **Clear**.
+- **I don’t know** → choose the cheapest allowed class for these tonnes (prefer `POST /quotes` without `carbonClass` so the backend auto-picks; otherwise equivalent client-side pick) → same attribution → **Clear**. Show the chosen class name on Clear once the quote returns.
 - Back → Amount or Evaluate result.
 
 **Not here**
 
 - Live wholesale prices, token IDs, or chain details.
+- The irreversible clear control — that lives only on **Clear**.
 
 ---
 
-### 8. Clear · Confirm
+### 7b. Quote (attribution)
 
-**Purpose.** Last reversible step. Make permanence and cost unmistakable.
+**Purpose.** Set certificate name and optional message after a quote exists, before the irreversible Clear page. Route: `/quote`. Early builds may combine Amount / Class / Attribution on this screen, as long as **Confirm and clear** is not here.
+
+**Content**
+
+- Quote summary (tonnes, class once known, **Price you pay** / `userTotal`, expiry) so the user can still change mind before Clear.
+- **Name on certificate** (`beneficiaryString`) — text field, required. Prefill with Clerk first + last name when set, else email local-part; user can edit.
+- Optional **message** (`retirementMessage`). When arriving from Evaluate, prefill with the LLM `suggestedRetirementMessage` from that evaluation; otherwise empty. Editable.
+- No wallet field. Do not show `beneficiaryAddress` unless we later add an advanced “technical details” disclosure; default is hide.
+- Primary: **Continue** → **Clear** (enabled when name is non-empty and a fresh quote is present).
+- Secondary: Back / refresh quote if needed.
+
+**Interactions**
+
+- `POST /quotes` runs here or on Class Continue before this step. Show spinner until quote returns. If quote fails, error + retry — do not advance to Clear.
+- Continue → push **Clear** (`/clear`) with quote id, tonnes, class, price, expiry, name, and message.
+- Back → Class or Amount.
+
+---
+
+### 8. Clear
+
+**Purpose.** Last reversible step on its **own** stack page (`/clear`). Recapitulate the clearing; make permanence and cost unmistakable. No editing on this screen.
 
 **Content**
 
 - Headline: Confirm clearing.
-- Summary block:
+- Recapitulation block (read-only — values carried from Quote / prior steps):
   - Tonnes
   - Carbon class
   - **Price you pay** (`userTotal`, USD) — marked-up only
   - Quote expiry (if close: “Price holds until …”)
-- Attribution:
-  - **Name on certificate** (`beneficiaryString`) — text field, required. Prefill with Clerk first + last name when set, else email local-part; user can edit.
-  - Optional **message** (`retirementMessage`). When arriving from Evaluate, prefill with the LLM `suggestedRetirementMessage` from that evaluation; otherwise empty. Editable.
-  - No wallet field. Do not show `beneficiaryAddress` unless we later add an advanced “technical details” disclosure; default is hide.
+  - **Name on certificate**
+  - **Message** (omit the row if empty)
 - Funds line: Available $X · After clearing $Y (or “Need $Z more”).
 - Warning: Clearing cannot be undone. The certificate attribution is permanent.
-- Primary: **Confirm and clear** (destructive-weight styling, not casual).
-- Secondary: Cancel / Back.
+- Primary: **Confirm and clear** (destructive-weight styling, not casual). Do not label this **Confirm retire** in the UI — product verb is **clear**.
+- Secondary: Back (return to Quote to edit).
 
 **Interactions**
 
-- On appear (or on Continue from Class): `POST /quotes` with tonnes + class. Show spinner until quote returns. If quote fails, error + retry.
-- If `available < userTotal`: primary becomes **Add funds to continue** → **Deposit** with `returnTo=confirm`, suggested amount = **max(shortfall, $5.00 minimum)** (USD), and shortfall for the “Needed…” hint. After successful deposit, **return to this Confirm screen** with fields still prefilled; refresh quote/balance.
-- If quote expired before confirm: refresh quote automatically once, or prompt to refresh; never clear on a stale id.
-- Confirm → disable button → **Clear · Progress** (`POST /retirements`).
+- Arrives only with a quote + attribution already chosen. Do not collect name/message here.
+- If `available < userTotal`: primary becomes **Add funds to continue** → **Deposit** with `returnTo=clear`, suggested amount = **max(shortfall, $5.00 minimum)** (USD), and shortfall for the “Needed…” hint. After successful deposit, **return to this Clear screen** with the same recapitulation; refresh quote/balance.
+- If quote expired before confirm: refresh quote automatically once, or prompt to go Back and re-quote; never clear on a stale id.
+- Confirm and clear → disable button → **Clear · Progress** (`POST /retirements`).
 - Insufficient funds error from API → same deposit handoff.
-- Cancel → Home (discard quote).
+- Back → Quote — do not discard the quote unless Cancel from an earlier step says so.
 
 **Never show**
 
 - Klima wholesale total, markup percentage as a “fee line item,” or service wallet info.
+- Editable fields for tonnes, class, name, or message.
 
 ---
 
@@ -391,7 +414,7 @@ Skip this screen when arriving from Evaluate result with a confirmed amount (sti
 **Interactions**
 
 - Open via the signed-in header’s profile icon (right side).
-- Edit → edit first/last name → save via Clerk user profile update; success refreshes local profile and returns to read-only. Prefill on Clear · Confirm (`beneficiaryString`) should use the updated name on next visit.
+- Edit → edit first/last name → save via Clerk user profile update; success refreshes local profile and returns to read-only. Prefill on **Quote** (`beneficiaryString`) should use the updated name on next visit.
 - Sign out → Clerk sign-out → Welcome.
 - Back → previous screen (usually the tab that was open).
 - Tab bar remains visible (same three destinations); none of the tab buttons is selected.
@@ -415,7 +438,7 @@ Skip this screen when arriving from Evaluate result with a confirmed amount (sti
 - When opened from insufficient funds: prefill suggested amount as **max(shortfall, $5.00)** — never below **$5.00**. Show “Needed for this clearing: $X” (shortfall) even when the prefill is higher because of the minimum.
 - Primary: **Add funds** → Stripe PaymentSheet / Checkout flow (presentment **usd**).
 - After success: bottom success toast (“$Y added to your account”) → navigate as follows:
-  - From Clear · Confirm (insufficient funds / retire flow): open Deposit with `returnTo=confirm` (and shortfall/amount params as needed) → on success, back to **Confirm** with the same tonnes, class, attribution, and message still filled; refresh balance/quote. Do **not** treat `shortfallCents` alone as the return signal.
+  - From **Clear** (insufficient funds / clear flow): open Deposit with `returnTo=clear` (and shortfall/amount params as needed) → on success, back to **Clear** with the same recapitulation; refresh balance/quote. Do **not** treat `shortfallCents` alone as the return signal.
   - Otherwise (Funds, Home, or any non-clear entry) → **Home**.
 
 **Interactions**
@@ -424,7 +447,7 @@ Skip this screen when arriving from Evaluate result with a confirmed amount (sti
 - Cancel Stripe / abandon Checkout → stay on Deposit (or return to caller without changing balance — same origin rule).
 - Failure → form summary error above the fields, retry.
 - No crypto deposit options; no EUR (or other) presentment choice in the app.
-- Deep link / return URL from Stripe Checkout must restore the **same entry route** (e.g. confirm with params/session), not a generic Home redirect.
+- Deep link / return URL from Stripe Checkout must restore the **same entry route** (e.g. Clear with params/session), not a generic Home redirect.
 
 ---
 
@@ -442,7 +465,7 @@ Skip this screen when arriving from Evaluate result with a confirmed amount (sti
 | Success toast | Ephemeral confirmation at the **bottom** of the content area — **above the tab bar** when the tab bar is visible (tabs, Profile, early Evaluate); never covers Home / History / Funds. Light green (`accentSoft`) with accent text. Auto-dismisses; not a modal. Uses: password reset success (**Password updated**); deposit success (**$Y added to your account**, or “Payment received — balance will update shortly” if the balance has not refreshed yet). Toast may appear on the screen after navigation. Do not use for errors (those stay inline). |
 | Connectivity  | Offline: disable primary submits; show a single banner.                                                                                                                                                  |
 | Form submit   | **Enter** on a **single-line** text field in a form runs the screen’s **primary** CTA (same enablement rules as the button). **Multiline / textarea fields never submit on Enter** (Enter = newline); the user taps the primary CTA. Never bind Enter to Cancel, Sign out, or other secondary/destructive actions. Do **not** treat an inserted newline character as a submit signal. |
-| Busy buttons  | In-flight primary CTAs: **ripple spinner only** (no “Signing in…” / “Getting quote…” label swap). Stable `accessibilityLabel` = the idle action name; mark the control disabled + busy (`accessibilityState.busy` / `aria-busy`). Full-screen or section spinners (cold start, quote load before Confirm, Progress) stay as they are — this row is about the CTA itself. |
+| Busy buttons  | In-flight primary CTAs: **ripple spinner only** (no “Signing in…” / “Getting quote…” label swap). Stable `accessibilityLabel` = the idle action name; mark the control disabled + busy (`accessibilityState.busy` / `aria-busy`). Full-screen or section spinners (cold start, quote load before Clear, Progress) stay as they are — this row is about the CTA itself. |
 
 
 ---
@@ -454,8 +477,8 @@ Skip this screen when arriving from Evaluate result with a confirmed amount (sti
 ```
 Welcome → Sign in → Home
   → Evaluate → Result (edit tonnes)
-    → Class → Confirm
-      → (insufficient) Deposit → Confirm
+    → Class → Quote (attribution) → Clear (recap)
+      → (insufficient) Deposit → Clear
         → Progress → Certificate → Home
 ```
 
@@ -472,7 +495,7 @@ User may leave with a mental note (or we keep last suggestion in session for “
 ### C. Known tonnage, already funded
 
 ```
-Home → Clear → Amount → Class → Confirm → Progress → Certificate
+Home → Clear → Amount → Class → Quote → Clear → Progress → Certificate
 ```
 
 ### D. Quota exhausted
@@ -483,13 +506,13 @@ Home → Estimate (blocked) → Quota empty → Clear → …
 
 After settle, Evaluate shows 10 evaluations again (Home does not surface the count).
 
-### E. Insufficient funds mid-confirm
+### E. Insufficient funds mid-clear
 
 ```
-… → Confirm → Add funds → Deposit → (Stripe success) → Confirm (same prefilled state; refreshed quote/balance) → Progress → …
+… → Clear → Add funds → Deposit → (Stripe success) → Clear (same recap; refreshed quote/balance) → Progress → …
 ```
 
-If the quote expired during deposit, refresh quote once before enabling Confirm again. Stripe return / cancel must not dump the user on a generic Home unless that was the entry point.
+If the quote expired during deposit, refresh quote once before enabling Confirm and clear again. Stripe return / cancel must not dump the user on a generic Home unless that was the entry point.
 
 ### F. Review a past certificate
 
@@ -525,10 +548,11 @@ Sign-in → Forgot password? → Reset password (email → code + new password)
 ## Copy guidelines
 
 - Primary verb in the UI: **clear** / **clearing** / **cleared** (brand-aligned, emotional). Never lead with “offset.”
-- Under the hood the product still **retires** credits (API paths, Klima, certificates). Keep `retire` / `retirement` in code, docs that describe mechanics, and field names (`retirementMessage`, `/retirements`). Do not put “retire” on buttons or headlines unless precision truly requires it.
-- Say **estimate** for the LLM step; reserve **confirm** for the irreversible action.
+- Under the hood the product still **retires** credits (API paths, Klima, certificates). Keep `retire` / `retirement` in code that describes mechanics, and field names (`retirementMessage`, `/retirements`). Do not put “retire” on buttons, headlines, or **route names** — mobile stack routes are `/quote` and `/clear`.
+- Say **estimate** for the LLM step; reserve **confirm** for the irreversible CTA label (**Confirm and clear**), not for the stack screen name (that screen is **Clear**).
 - Money: **USD only** in the UI — balances, quotes, deposit amount, and success copy. Do not show a currency toggle or EUR amounts. Card networks may still bill the cardholder in their local currency; we do not surface that FX in the app.
-- Permanence warning appears **once**, on Confirm — not on every prior step.
+- Permanence warning appears **once**, on **Clear** — not on every prior step.
+- The irreversible CTA is only on **Clear**, labeled **Confirm and clear** (never **Confirm retire** in user-facing copy).
 - Avoid explaining markup, Klima, or Base unless the user opens an optional About later (out of v1 scope).
 
 ---
@@ -554,6 +578,7 @@ Sign-in → Forgot password? → Reset password (email → code + new password)
 | M1 App shell         | Tabs, brand header (logo + name + profile icon), API client, cold-start handling |
 | M2 Auth and account  | Welcome, Sign-in, Reset password, Home CTAs, Funds (funded USD only), Profile (header), Deposit |
 | M3 Evaluate          | Evaluate, Result, Quota empty                     |
-| M4 Quote and confirm | Amount, Class, Confirm, Progress, deposit handoff |
+| M4a Quote | Amount, Class, Quote (`/quote`, attribution with quote) |
+| M4b Clear | Clear (`/clear` recap), Progress, deposit handoff |
 | M5 Certificate       | Certificate success, History, Detail              |
 | M6 EAS               | Full A/C/E flows against staging                  |

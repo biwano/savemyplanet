@@ -5,6 +5,7 @@ import { ScrollView, Text } from 'react-native'
 import { Button, ErrorBanner, Field, Form, useToast } from '@/components/ui'
 import { publishAvailableCents } from '@/lib/accountBalanceCache'
 import { ApiError, api } from '@/lib/api'
+import { MIN_DEPOSIT_CENTS } from '@/lib/clearFlow'
 import { hasStripePublishableKey } from '@/lib/config'
 import {
   centsToMajorInput,
@@ -14,8 +15,6 @@ import {
 import { DepositCheckout } from '@/lib/stripe/DepositCheckout'
 import { colors, spacing, typography } from '@/lib/theme'
 import { useAuthRefresh } from '@/lib/useAuthRefresh'
-
-const MIN_CENTS = 500
 
 function parseParamCents(value: string | string[] | undefined): number | null {
   if (typeof value !== 'string') return null
@@ -42,19 +41,19 @@ export default function DepositScreen() {
   const params = useLocalSearchParams<{
     amountCents?: string
     shortfallCents?: string
-    /** Clear · Confirm sets `returnTo=confirm` so success pops back; do not infer from shortfall. */
+    /** Clear sets `returnTo=clear` so success pops back; do not infer from shortfall. */
     returnTo?: string
   }>()
   const { requireToken } = useAuthRefresh()
   const { showToast } = useToast()
 
-  const returnToConfirm = params.returnTo === 'confirm'
+  const returnToClear = params.returnTo === 'clear'
   const shortfallCents = parseParamCents(params.shortfallCents)
   const suggestedCents = useMemo(() => {
     const fromParam = parseParamCents(params.amountCents)
-    if (fromParam != null) return Math.max(fromParam, MIN_CENTS)
-    if (shortfallCents != null) return Math.max(shortfallCents, MIN_CENTS)
-    return MIN_CENTS
+    if (fromParam != null) return Math.max(fromParam, MIN_DEPOSIT_CENTS)
+    if (shortfallCents != null) return Math.max(shortfallCents, MIN_DEPOSIT_CENTS)
+    return MIN_DEPOSIT_CENTS
   }, [params.amountCents, shortfallCents])
 
   const [amountMajor, setAmountMajor] = useState(centsToMajorInput(suggestedCents))
@@ -72,7 +71,7 @@ export default function DepositScreen() {
       return
     }
     const cents = parseMajorToCents(amountMajor)
-    if (cents == null || cents < MIN_CENTS) {
+    if (cents == null || cents < MIN_DEPOSIT_CENTS) {
       setAmountError('Minimum deposit is $5.00')
       return
     }
@@ -112,8 +111,8 @@ export default function DepositScreen() {
           : 'Payment received — balance will update shortly',
       )
       setClientSecret(null)
-      // Clear · Confirm passes returnTo=confirm (+ shortfall for prefill); else Home.
-      if (returnToConfirm && router.canGoBack()) router.back()
+      // Clear passes returnTo=clear (+ shortfall for prefill); else Home.
+      if (returnToClear && router.canGoBack()) router.back()
       else router.replace('/(app)/(tabs)')
     } catch (err) {
       setError(

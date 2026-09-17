@@ -18,7 +18,7 @@ export default function HomeScreen() {
       />
       <Button
         label="Clear carbon"
-        onPress={() => router.push('/(app)/retire')}
+        onPress={() => router.push('/(app)/quote')}
         variant="secondary"
       />
     </ScrollView>

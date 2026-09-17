@@ -16,7 +16,8 @@ export default function AppLayout() {
       }}
     >
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="retire" />
+      <Stack.Screen name="quote" />
+      <Stack.Screen name="clear" />
       <Stack.Screen name="deposit" />
     </Stack>
   )
