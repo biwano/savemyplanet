@@ -33,7 +33,7 @@ Flows (pushed stacks, tab bar hidden)
   └─ Clear: amount → class → quote (attribution) → clear → progress → certificate
 ```
 
-**Quote** (`/quote`) collects tonnes / class / attribution and fetches a marked-up quote; early builds may combine Amount · Class · Attribution on this one screen. **Clear** (`/clear`) is always its own stack screen: a read-only recapitulation plus the irreversible **Confirm and clear** action. Editing tonnes, class, name, or message happens on Quote (or earlier steps) — never on Clear.
+**Quote** (`/quote`) collects tonnes / class / attribution, then **Get quote** runs `POST /quotes` and — on success — pushes **Clear** with the quote in hand. Early builds may combine Amount · Class · Attribution on this one screen. There is no price card or separate Continue on Quote; price / class / expiry appear on **Clear**. **Clear** (`/clear`) is always its own stack screen: a read-only recapitulation plus the irreversible **Confirm and clear** action. Editing tonnes, class, name, or message happens on Quote (or earlier steps) — never on Clear.
 
 Tabs stay at three (**Home · History · Funds**). Profile and early Evaluate are still **flows** launched from Home / header — not permanent tab buttons — but they keep the **tab bar** so the user can jump to Home, History, or Funds. Once Evaluate reaches **result** (or the user continues into Clear / Deposit), hide the tab bar so the clearing tunnel stays focused.
 
@@ -231,8 +231,8 @@ Skip this screen when arriving from Evaluate result with a confirmed amount (sti
 
 **Interactions**
 
-- Select class → Continue → request quote → **Quote / attribution** (name + message) with quote in hand, then **Clear**.
-- **I don’t know** → choose the cheapest allowed class for these tonnes (prefer `POST /quotes` without `carbonClass` so the backend auto-picks; otherwise equivalent client-side pick) → same attribution → **Clear**. Show the chosen class name on Clear once the quote returns.
+- Select class → Continue → **Quote / attribution** (name + message). Quote fetch + advance to Clear happen on **Get quote**.
+- **I don’t know** → prefer omitting `carbonClass` on `POST /quotes` so the backend auto-picks the cheapest liquid class (or equivalent client-side pick) → same attribution path → **Clear**. Show the chosen class name on Clear once the quote returns.
 - Back → Amount or Evaluate result.
 
 **Not here**
@@ -244,21 +244,22 @@ Skip this screen when arriving from Evaluate result with a confirmed amount (sti
 
 ### 7b. Quote (attribution)
 
-**Purpose.** Set certificate name and optional message after a quote exists, before the irreversible Clear page. Route: `/quote`. Early builds may combine Amount / Class / Attribution on this screen, as long as **Confirm and clear** is not here.
+**Purpose.** Collect tonnes (when combined), certificate name, and optional message; fetch a marked-up quote; then advance to the irreversible Clear page. Route: `/quote`. Early builds may combine Amount / Class / Attribution on this screen, as long as **Confirm and clear** is not here.
 
 **Content**
 
-- Quote summary (tonnes, class once known, **Price you pay** / `userTotal`, expiry) so the user can still change mind before Clear.
+- Tonnes field when Amount is combined here (positive tCO₂e).
 - **Name on certificate** (`beneficiaryString`) — text field, required. Prefill with Clerk first + last name when set, else email local-part; user can edit.
 - Optional **message** (`retirementMessage`). When arriving from Evaluate, prefill with the LLM `suggestedRetirementMessage` from that evaluation; otherwise empty. Editable.
 - No wallet field. Do not show `beneficiaryAddress` unless we later add an advanced “technical details” disclosure; default is hide.
-- Primary: **Continue** → **Clear** (enabled when name is non-empty and a fresh quote is present).
-- Secondary: Back / refresh quote if needed.
+- No on-screen quote summary (price / class / expiry). That recapitulation lives only on **Clear**; Back from Clear returns here to edit.
+- Primary: **Get quote** — validates name (and tonnes when shown), calls `POST /quotes`, and on success pushes **Clear**. Busy = ripple spinner only (see Busy buttons). Do not swap the label to “Continue” after a quote; one CTA does fetch + advance.
+- Secondary: Back.
 
 **Interactions**
 
-- `POST /quotes` runs here or on Class Continue before this step. Show spinner until quote returns. If quote fails, error + retry — do not advance to Clear.
-- Continue → push **Clear** (`/clear`) with quote id, tonnes, class, price, expiry, name, and message.
+- Validate required fields before calling the API. Show spinner on the CTA until the quote returns. If quote fails, error + retry — do not advance to Clear.
+- On success → push **Clear** (`/clear`) with quote id, tonnes, class, price, expiry, name, and message.
 - Back → Class or Amount.
 
 ---

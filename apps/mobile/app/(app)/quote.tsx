@@ -2,13 +2,12 @@ import { useAuth, useUser } from '@clerk/expo'
 import type { APIQuote } from 'api-types'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useState } from 'react'
-import { Text, View } from 'react-native'
+import { Text } from 'react-native'
 
 import { Button, ErrorBanner, Field, Form, Screen } from '@/components/ui'
 import { ApiError, api } from '@/lib/api'
 import { defaultBeneficiaryString } from '@/lib/clearFlow'
-import { formatUsdCents } from '@/lib/format'
-import { colors, spacing, typography } from '@/lib/theme'
+import { typography } from '@/lib/theme'
 
 export default function QuoteScreen() {
   const { getToken } = useAuth()
@@ -24,19 +23,38 @@ export default function QuoteScreen() {
   const [message, setMessage] = useState(
     typeof params.message === 'string' ? params.message : '',
   )
-  const [quote, setQuote] = useState<APIQuote | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [tonnesError, setTonnesError] = useState<string | null>(null)
   const [beneficiaryError, setBeneficiaryError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
+  function pushClear(next: APIQuote, name: string) {
+    router.push({
+      pathname: '/(app)/clear',
+      params: {
+        quoteId: next.quoteId,
+        tonnes: String(next.tonnes),
+        carbonClass: next.carbonClass,
+        userTotal: String(next.userTotal),
+        expiresAt: next.expiresAt,
+        beneficiaryString: name,
+        ...(message.trim() ? { message: message.trim() } : {}),
+      },
+    })
+  }
+
   async function onQuote() {
     setError(null)
     setTonnesError(null)
-    setQuote(null)
+    setBeneficiaryError(null)
     const tonnesNumber = Number(tonnes)
     if (!Number.isFinite(tonnesNumber) || tonnesNumber <= 0) {
       setTonnesError('Enter a positive tonnage')
+      return
+    }
+    const name = beneficiaryValue.trim()
+    if (!name) {
+      setBeneficiaryError('Enter a name for the certificate')
       return
     }
     setBusy(true)
@@ -44,7 +62,7 @@ export default function QuoteScreen() {
       const token = await getToken()
       if (!token) throw new Error('Missing session token')
       // Backend auto-picks cheapest liquid class when carbonClass is omitted (S2).
-      setQuote(await api.createQuote(token, tonnesNumber))
+      pushClear(await api.createQuote(token, tonnesNumber), name)
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -58,47 +76,18 @@ export default function QuoteScreen() {
     }
   }
 
-  function onContinueToClear() {
-    if (!quote) return
-    const name = beneficiaryValue.trim()
-    if (!name) {
-      setBeneficiaryError('Enter a name for the certificate')
-      return
-    }
-    setBeneficiaryError(null)
-    router.push({
-      pathname: '/(app)/clear',
-      params: {
-        quoteId: quote.quoteId,
-        tonnes: String(quote.tonnes),
-        carbonClass: quote.carbonClass,
-        userTotal: String(quote.userTotal),
-        expiresAt: quote.expiresAt,
-        beneficiaryString: name,
-        ...(message.trim() ? { message: message.trim() } : {}),
-      },
-    })
-  }
-
   return (
     <Screen>
       <Text style={typography.title}>Get a quote</Text>
       <ErrorBanner message={error} />
 
-      <Form
-        onSubmit={() => {
-          if (quote) onContinueToClear()
-          else void onQuote()
-        }}
-        disabled={busy}
-      >
+      <Form onSubmit={() => void onQuote()} disabled={busy}>
         <Field
           label="Tonnes (tCO₂e)"
           value={tonnes}
           onChangeText={(value) => {
             setTonnes(value)
             setTonnesError(null)
-            setQuote(null)
           }}
           keyboardType="decimal-pad"
           error={tonnesError}
@@ -120,41 +109,7 @@ export default function QuoteScreen() {
           multiline
         />
 
-        {!quote ? (
-          <Button submit label="Get quote" busy={busy} />
-        ) : (
-          <Button
-            label="Get quote"
-            onPress={() => void onQuote()}
-            busy={busy}
-            variant="secondary"
-          />
-        )}
-
-        {quote && (
-          <View
-            style={{
-              backgroundColor: colors.surface,
-              borderRadius: 12,
-              padding: spacing.md,
-              borderWidth: 1,
-              borderColor: colors.line,
-              gap: spacing.sm,
-            }}
-          >
-            <Text style={typography.label}>Your price</Text>
-            <Text style={typography.body}>
-              {quote.tonnes} t · {formatUsdCents(quote.userTotal)}
-            </Text>
-            <Text style={typography.muted}>
-              Class: {quote.carbonClass}
-            </Text>
-            <Text style={typography.muted}>
-              Expires {new Date(quote.expiresAt).toLocaleString()}
-            </Text>
-            <Button submit label="Continue" busy={busy} />
-          </View>
-        )}
+        <Button submit label="Get quote" busy={busy} />
       </Form>
     </Screen>
   )
